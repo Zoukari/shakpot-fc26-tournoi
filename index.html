@@ -159,6 +159,7 @@
   .gauge-track{display:flex; height:8px; border-radius:6px; overflow:hidden; background:rgba(255,255,255,0.08);}
   .gauge-fill-p1{background:var(--red2); height:100%;}
   .gauge-fill-p2{background:var(--gold); height:100%;}
+  .gauge-fill-null{background:#ffffff; height:100%;}
 
   .empty-state{text-align:center; padding:52px 20px; border:1px dashed var(--line); border-radius:18px;}
   .empty-state-icon{font-size:32px; margin-bottom:10px;}
@@ -992,23 +993,24 @@ function crowdPrediction(matchId, p1, p2){
   let topScore = null, topCount = 0;
   Object.entries(scoreCounts).forEach(([k,c])=>{ if(c>topCount){ topCount=c; topScore=k; } });
 
-  const decided = win1 + win2;
-  if(decided === 0){
-    return `<div style="margin-top:8px;">
-      <div class="tiny muted">📊 Pronostic public (${total} paris) · score le plus parié : ${topScore}</div>
-    </div>`;
-  }
-  // les pourcentages sont calcules sur les paris qui donnent un vainqueur, et totalisent toujours 100%
-  let pct1 = Math.round(100*win1/decided);
-  let pct2 = 100 - pct1;
+  // pourcentages sur le total des paris (vainqueur1 / nul / vainqueur2), toujours 100% au total
+  let pct1 = Math.round(100*win1/total);
+  let pctNull = Math.round(100*draws/total);
+  let pct2 = 100 - pct1 - pctNull; // absorbe l'arrondi
+
+  const nullSegment = pctNull>0 ? `<div class="gauge-fill-null" style="width:${pctNull}%;"></div>` : '';
+  const nullLabel = pctNull>0 ? `<span class="row center" style="flex:0 0 auto;">NULL <b style="color:#fff; margin-left:3px;">${pctNull}%</b></span>` : '';
+
   return `<div style="margin-top:8px;">
     <div class="tiny muted" style="margin-bottom:4px;">📊 Pronostic public (${total} paris) · score le plus parié : ${topScore}</div>
     <div class="row between tiny" style="margin-bottom:3px;">
       <span>${p1.prenom} <b class="red">${pct1}%</b></span>
+      ${nullLabel}
       <span><b class="gold">${pct2}%</b> ${p2.prenom}</span>
     </div>
     <div class="gauge-track">
       <div class="gauge-fill-p1" style="width:${pct1}%;"></div>
+      ${nullSegment}
       <div class="gauge-fill-p2" style="width:${pct2}%;"></div>
     </div>
   </div>`;
