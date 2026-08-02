@@ -41,7 +41,8 @@ create table if not exists bets (
   match_id text not null,
   nom text not null,
   tel text not null,
-  side text not null check (side in ('p1','p2')),
+  pred1 int,
+  pred2 int,
   created_at timestamptz default now()
 );
 

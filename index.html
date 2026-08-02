@@ -89,6 +89,7 @@
 
   .match-card{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:12px; min-width:210px;}
   .match-card.me{border-color:var(--gold); box-shadow:0 0 0 1px rgba(242,183,5,0.35);}
+  .match-card.final{border-color:var(--red); box-shadow:0 0 0 1px rgba(229,32,43,0.30); background:linear-gradient(180deg, rgba(229,32,43,0.08), var(--panel));}
   .me-tag{font-size:9px; font-weight:800; color:#1a1200; background:var(--gold); border-radius:5px; padding:1px 5px; margin-left:6px; letter-spacing:.5px; vertical-align:middle;}
 
   .modal-backdrop{position:fixed; inset:0; z-index:50; background:rgba(0,0,0,0.78); display:flex; align-items:center; justify-content:center; padding:18px; overflow-y:auto;}
@@ -441,7 +442,7 @@ async function refreshAll(){
     bets = {};
     (betRows||[]).forEach(r=>{
       if(!bets[r.match_id]) bets[r.match_id] = [];
-      bets[r.match_id].push({nom:r.nom, tel:r.tel, side:r.side, ts:new Date(r.created_at).getTime()});
+      bets[r.match_id].push({nom:r.nom, tel:r.tel, pred1:r.pred1, pred2:r.pred2, ts:new Date(r.created_at).getTime()});
     });
   }catch(e){ console.error('refresh failed', e); }
   renderAll();
@@ -737,7 +738,8 @@ async function seedBettors(){
       match_id: m.id,
       nom: pick(FAKE_PRENOMS),
       tel: "90"+String(Math.floor(100000 + Math.random()*900000)),
-      side: Math.random()<0.5 ? 'p1' : 'p2'
+      pred1: Math.floor(Math.random()*5),
+      pred2: Math.floor(Math.random()*5)
     });
   }
   const {error} = await sb.from('bets').insert(rows);
@@ -777,11 +779,14 @@ async function submitScore(matchId){
 }
 
 // ---------- betting (public) ----------
-async function placeBet(matchId, side){
+async function placeScoreBet(matchId, s1elId, s2elId){
   if(!spectator) return;
   const existing = (bets[matchId]||[]).find(b=>b.tel===spectator.tel);
   if(existing) return;
-  const {error} = await sb.from('bets').insert({match_id: matchId, nom: spectator.nom, tel: spectator.tel, side});
+  const p1 = parseInt(document.getElementById(s1elId).value);
+  const p2 = parseInt(document.getElementById(s2elId).value);
+  if(isNaN(p1) || isNaN(p2) || p1<0 || p2<0){ alert('Entre un score valide pour les deux équipes.'); return; }
+  const {error} = await sb.from('bets').insert({match_id: matchId, nom: spectator.nom, tel: spectator.tel, pred1: p1, pred2: p2});
   if(error){ console.error(error); return; }
   await refreshAll();
 }
@@ -848,21 +853,40 @@ function matchCard(m, opts={}){
       </div>`;
     if(isPending && opts.allowBet){
       if(myBet){
-        body += `<div class="tiny gold chip" style="margin-top:6px;">Ton pari : ${myBet.side==='p1'?playerLabel(p1):playerLabel(p2)}</div>`;
+        body += `<div class="tiny red chip" style="margin-top:6px;">Ton pari : ${myBet.pred1}-${myBet.pred2}</div>`;
       } else {
-        body += `<div class="row gap-sm" style="margin-top:8px;">
-          <button onclick="placeBet('${m.id}','p1')" class="btn btn-sm g1">Parier ${p1.prenom}</button>
-          <button onclick="placeBet('${m.id}','p2')" class="btn btn-sm g1">Parier ${p2.prenom}</button>
+        const s1id = 'bp1_'+m.id, s2id = 'bp2_'+m.id;
+        body += `<div class="small muted" style="margin-top:8px; margin-bottom:4px;">Devine le score exact :</div>
+        <div class="row gap-sm" style="align-items:center;">
+          <input id="${s1id}" type="number" min="0" placeholder="0" class="input input-sm" style="text-align:center;">
+          <span class="muted">-</span>
+          <input id="${s2id}" type="number" min="0" placeholder="0" class="input input-sm" style="text-align:center;">
+          <button onclick="placeScoreBet('${m.id}','${s1id}','${s2id}')" class="btn btn-primary btn-sm">Parier</button>
         </div>`;
       }
     }
     if(isDone && myBet){
-      const won = myBet.side==='p1' ? m.winnerId===p1.id : m.winnerId===p2.id;
-      body += `<div class="tiny chip" style="margin-top:6px; ${won?'color:var(--gold);':'color:var(--muted);'}">${won? '🎉 Gagné · -15% chez Shakpot' : 'Perdu'}</div>`;
+      const won = myBet.pred1===m.score1 && myBet.pred2===m.score2;
+      body += `<div class="tiny chip" style="margin-top:6px; ${won?'color:var(--gold);':'color:var(--muted);'}">${won? '🎉 Score exact ! -15% chez Shakpot' : `Perdu (pari ${myBet.pred1}-${myBet.pred2})`}</div>`;
     }
   }
 
-  return `<div class="match-card${involvesMe?' me':''}" id="mc-${m.id}">${body}</div>`;
+  return `<div class="match-card${involvesMe?' me':''}${opts.isFinal?' final':''}" id="mc-${m.id}">${body}</div>`;
+}
+
+function halfOf(arr){ return arr.length/2; }
+function leftHalf(arr){ return arr.slice(0, halfOf(arr)); }
+function rightHalf(arr){ return arr.slice(halfOf(arr)); }
+function byId(m){ return document.getElementById('mc-'+m.id); }
+
+function bracketColumn(matches, label, opts){
+  opts = opts || {};
+  return `<div style="flex-shrink:0; width:220px; display:flex; flex-direction:column; justify-content:center;">
+    <div>
+      <div class="chip muted" style="margin-bottom:8px; text-align:center;">${label}</div>
+      ${matches.map(m=>matchCard(m,{allowBet:true, isFinal:!!opts.isFinal})).join('')}
+    </div>
+  </div>`;
 }
 
 function renderBracket(){
@@ -874,19 +898,43 @@ function renderBracket(){
     return;
   }
   empty.classList.add('hidden');
-  let rounds = '<div id="bracketRounds" class="row" style="gap:56px; align-items:flex-start; position:relative; z-index:1;">';
-  state.bracket.rounds.forEach(round=>{
-    rounds += `<div style="flex-shrink:0; width:220px;">
-      <div class="chip muted" style="margin-bottom:8px;">${round.name.toUpperCase()}</div>
-      ${round.matches.map(m=>matchCard(m,{allowBet:true})).join('')}
-    </div>`;
-  });
-  rounds += '</div>';
+  const rounds = state.bracket.rounds; // [R0, R1, R2, R3, Finale]
+
+  let html = '<div id="bracketRounds" class="row" style="gap:56px; align-items:stretch; position:relative; z-index:1;">';
+  // côté gauche : de Round 1 vers Demi-finale
+  for(let r=0;r<4;r++) html += bracketColumn(leftHalf(rounds[r].matches), rounds[r].name.toUpperCase());
+  // centre : finale
+  html += bracketColumn(rounds[4].matches, '🏆 ' + rounds[4].name.toUpperCase(), {isFinal:true});
+  // côté droit (miroir) : de Demi-finale vers Round 1
+  for(let r=3;r>=0;r--) html += bracketColumn(rightHalf(rounds[r].matches), rounds[r].name.toUpperCase());
+  html += '</div>';
+
   wrap.innerHTML = `<div id="bracketInner" style="position:relative;">
     <svg id="bracketSvg" style="position:absolute; top:0; left:0; pointer-events:none;"></svg>
-    ${rounds}
+    ${html}
   </div>`;
   requestAnimationFrame(drawBracketConnectors);
+}
+
+function connectPair(elA, elB, elT, base, mirrored){
+  const rA = elA.getBoundingClientRect(), rB = elB.getBoundingClientRect(), rT = elT.getBoundingClientRect();
+  const x1 = (mirrored ? rA.left : rA.right) - base.left;
+  const y1 = rA.top + rA.height/2 - base.top;
+  const y2 = rB.top + rB.height/2 - base.top;
+  const xt = (mirrored ? rT.right : rT.left) - base.left;
+  const xmid = x1 + (xt - x1) / 2;
+  const ymid = (y1 + y2) / 2;
+  return `M ${x1} ${y1} H ${xmid} V ${y2} M ${x1} ${y2} H ${xmid} M ${xmid} ${ymid} H ${xt} `;
+}
+
+function connectSingle(elA, elT, base, mirrored){
+  const rA = elA.getBoundingClientRect(), rT = elT.getBoundingClientRect();
+  const x1 = (mirrored ? rA.left : rA.right) - base.left;
+  const y1 = rA.top + rA.height/2 - base.top;
+  const xt = (mirrored ? rT.right : rT.left) - base.left;
+  const yt = rT.top + rT.height/2 - base.top;
+  const xmid = x1 + (xt - x1) / 2;
+  return `M ${x1} ${y1} H ${xmid} V ${yt} H ${xt} `;
 }
 
 function drawBracketConnectors(){
@@ -906,24 +954,24 @@ function drawBracketConnectors(){
   const base = inner.getBoundingClientRect();
   const rounds = state.bracket.rounds;
   let d = '';
-  for(let r=0; r<rounds.length-1; r++){
-    const cur = rounds[r].matches;
-    const next = rounds[r+1].matches;
-    next.forEach((m, i)=>{
-      const el1 = document.getElementById('mc-'+cur[2*i].id);
-      const el2 = document.getElementById('mc-'+cur[2*i+1].id);
-      const elT = document.getElementById('mc-'+m.id);
-      if(!el1 || !el2 || !elT) return;
-      const b1 = el1.getBoundingClientRect(), b2 = el2.getBoundingClientRect(), bt = elT.getBoundingClientRect();
-      const x1 = b1.right - base.left;
-      const y1 = b1.top + b1.height/2 - base.top;
-      const y2 = b2.top + b2.height/2 - base.top;
-      const xt = bt.left - base.left;
-      const xmid = x1 + (xt - x1) / 2;
-      const ymid = (y1 + y2) / 2;
-      d += `M ${x1} ${y1} H ${xmid} V ${y2} M ${x1} ${y2} H ${xmid} M ${xmid} ${ymid} H ${xt} `;
+  for(let r=0; r<3; r++){
+    const curL = leftHalf(rounds[r].matches), nextL = leftHalf(rounds[r+1].matches);
+    const curR = rightHalf(rounds[r].matches), nextR = rightHalf(rounds[r+1].matches);
+    nextL.forEach((m,i)=>{
+      const elA = byId(curL[2*i]), elB = byId(curL[2*i+1]), elT = byId(m);
+      if(elA && elB && elT) d += connectPair(elA, elB, elT, base, false);
+    });
+    nextR.forEach((m,i)=>{
+      const elA = byId(curR[2*i]), elB = byId(curR[2*i+1]), elT = byId(m);
+      if(elA && elB && elT) d += connectPair(elA, elB, elT, base, true);
     });
   }
+  const demiL = leftHalf(rounds[3].matches)[0];
+  const demiR = rightHalf(rounds[3].matches)[0];
+  const finalM = rounds[4].matches[0];
+  const elDL = byId(demiL), elDR = byId(demiR), elF = byId(finalM);
+  if(elDL && elF) d += connectSingle(elDL, elF, base, false);
+  if(elDR && elF) d += connectSingle(elDR, elF, base, true);
   svg.innerHTML = `<path d="${d}" fill="none" stroke="#3A4260" stroke-width="2" stroke-linecap="round"/>`;
 }
 
@@ -977,25 +1025,24 @@ function renderMesParis(){
       wrap.innerHTML = `<div class="empty-state">
         <div class="empty-state-icon">🎲</div>
         <div class="empty-state-title">Aucun pari pour l'instant</div>
-        <div class="empty-state-text">Va dans l'onglet Tableau et parie sur un match en cours.</div>
+        <div class="empty-state-text">Va dans l'onglet Tableau et devine le score exact d'un match en cours.</div>
       </div>`;
     } else {
       wrap.innerHTML = myBets.sort((a,b)=>b.ts-a.ts).map(b=>{
         const m = findMatch(b.matchId);
         if(!m) return '';
-        const pick = b.side==='p1' ? m.p1 : m.p2;
         let statusHtml;
         if(m.status!=='done'){
           statusHtml = `<span class="chip muted">EN COURS</span>`;
         } else {
-          const won = b.side==='p1' ? m.winnerId===m.p1.id : m.winnerId===m.p2.id;
+          const won = b.pred1===m.score1 && b.pred2===m.score2;
           statusHtml = won
-            ? `<span class="chip gold">🎉 GAGNÉ · -15% CHEZ SHAKPOT</span>`
+            ? `<span class="chip gold">🎉 SCORE EXACT · -15% CHEZ SHAKPOT</span>`
             : `<span class="chip muted">PERDU</span>`;
         }
         return `<div class="card" style="padding:16px;">
-          <div class="small">Ton pari : <span style="font-weight:600;">${playerLabel(pick)}</span></div>
-          <div class="tiny muted" style="margin-top:4px;">${playerLabel(m.p1)} vs ${playerLabel(m.p2)}${m.status==='done'?` · ${m.score1}-${m.score2}`:''}</div>
+          <div class="small">Ton pari : <span style="font-weight:600;">${b.pred1}-${b.pred2}</span></div>
+          <div class="tiny muted" style="margin-top:4px;">${playerLabel(m.p1)} vs ${playerLabel(m.p2)}${m.status==='done'?` · score final ${m.score1}-${m.score2}`:''}</div>
           <div style="margin-top:8px;">${statusHtml}</div>
         </div>`;
       }).join('');
@@ -1014,9 +1061,8 @@ function renderMesParis(){
     globalWrap.innerHTML = all.slice(0,20).map(b=>{
       const m = findMatch(b.matchId);
       if(!m || !m.p1 || !m.p2) return '';
-      const pick = b.side==='p1' ? m.p1 : m.p2;
       return `<div class="row between small card" style="padding:10px 14px;">
-        <span>${b.nom} <span class="muted tiny">a parié sur</span> ${playerLabel(pick)}</span>
+        <span>${b.nom} <span class="muted tiny">parie</span> ${b.pred1}-${b.pred2}</span>
         <span class="tiny muted">${findRoundName(b.matchId)}</span>
       </div>`;
     }).join('');
@@ -1034,10 +1080,7 @@ function renderAllBetsAdmin(){
   let winners = 0;
   all.forEach(b=>{
     const m = findMatch(b.matchId);
-    if(m && m.status==='done'){
-      const won = b.side==='p1' ? m.winnerId===m.p1.id : m.winnerId===m.p2.id;
-      if(won) winners++;
-    }
+    if(m && m.status==='done' && b.pred1===m.score1 && b.pred2===m.score2) winners++;
   });
   countChip.textContent = `${winners} gagnant${winners===1?'':'s'} · -15%`;
   if(all.length===0){
@@ -1048,20 +1091,18 @@ function renderAllBetsAdmin(){
   const rank = (b)=>{
     const m = findMatch(b.matchId);
     if(!m || m.status!=='done') return 1;
-    const won = b.side==='p1' ? m.winnerId===m.p1.id : m.winnerId===m.p2.id;
-    return won ? 0 : 2;
+    return (b.pred1===m.score1 && b.pred2===m.score2) ? 0 : 2;
   };
   all.sort((a,b)=> rank(a)-rank(b) || b.ts-a.ts);
   wrap.innerHTML = all.map(b=>{
     const m = findMatch(b.matchId);
-    const pick = m ? (b.side==='p1' ? m.p1 : m.p2) : null;
     let statusHtml = `<span class="chip muted">EN COURS</span>`;
     if(m && m.status==='done'){
-      const won = b.side==='p1' ? m.winnerId===m.p1.id : m.winnerId===m.p2.id;
+      const won = b.pred1===m.score1 && b.pred2===m.score2;
       statusHtml = won ? `<span class="chip gold">✅ GAGNÉ · -15%</span>` : `<span class="chip muted">PERDU</span>`;
     }
     return `<div class="row between small" style="border:1px solid var(--line); border-radius:8px; padding:8px 10px;">
-      <span>${b.nom} · <span class="muted tiny">${b.tel}</span> → ${pick?playerLabel(pick):'?'} <span class="tiny muted">(${findRoundName(b.matchId)})</span></span>
+      <span>${b.nom} · <span class="muted tiny">${b.tel}</span> → pari <b>${b.pred1}-${b.pred2}</b> <span class="tiny muted">(${findRoundName(b.matchId)})</span></span>
       ${statusHtml}
     </div>`;
   }).join('');
@@ -1122,10 +1163,9 @@ function renderAdmin(){
           html += `<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--line);">
             <div class="chip muted" style="margin-bottom:4px;">PARIS (${matchBets.length})</div>
             ${matchBets.map(b=>{
-              const pickName = b.side==='p1'?m.p1.prenom:m.p2.prenom;
-              const won = m.status==='done' && (b.side==='p1' ? m.winnerId===m.p1.id : m.winnerId===m.p2.id);
+              const won = m.status==='done' && b.pred1===m.score1 && b.pred2===m.score2;
               return `<div class="row between tiny" style="padding:2px 0;">
-                <span>${b.nom} · ${b.tel} → ${pickName}</span>
+                <span>${b.nom} · ${b.tel} → pari ${b.pred1}-${b.pred2}</span>
                 ${m.status==='done'?`<span style="${won?'color:var(--gold);':'color:var(--muted);'}">${won?'Gagnant -15%':'Perdu'}</span>`:''}
               </div>`;
             }).join('')}
