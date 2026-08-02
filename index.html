@@ -334,11 +334,6 @@
         <div class="empty-state-title">L'arbre arrive bientôt</div>
         <div class="empty-state-text">Les 24 joueurs sont en cours d'inscription chez l'organisateur. Reviens dès que le tirage est lancé pour voir qui affronte qui.</div>
       </div>
-      <div id="bracketZoomCtrl" style="position:sticky; top:0; z-index:10; display:flex; justify-content:flex-end; gap:8px; padding:6px 0; background:var(--bg);">
-        <button onclick="bracketZoom(-0.1)" class="btn btn-sm" style="padding:6px 14px; font-size:16px;">−</button>
-        <button onclick="bracketZoomReset()" class="btn btn-sm" style="padding:6px 10px; font-size:11px;">↺</button>
-        <button onclick="bracketZoom(+0.1)" class="btn btn-sm" style="padding:6px 14px; font-size:16px;">＋</button>
-      </div>
       <div id="bracketWrap" style="overflow:auto; -webkit-overflow-scrolling:touch; padding-bottom:16px;">
         <!-- bracketScale applique le zoom : tout ce qui est dans ce div (cases + SVG) est zoomé ensemble -->
         <div id="bracketScale" style="transform-origin:top left; display:inline-block;">
@@ -521,6 +516,13 @@
   </div>
 </div>
 
+<!-- Contrôles zoom bracket — position fixe, visibles uniquement sur l'onglet Tableau -->
+<div id="bracketZoomFab" class="hidden" style="position:fixed; bottom:80px; right:16px; z-index:50; display:flex; flex-direction:column; gap:6px;">
+  <button onclick="bracketZoom(+0.15)" class="btn btn-sm" style="width:44px; height:44px; padding:0; font-size:20px; border-radius:12px;">＋</button>
+  <button onclick="bracketZoomReset()" class="btn btn-sm" style="width:44px; height:44px; padding:0; font-size:14px; border-radius:12px;">↺</button>
+  <button onclick="bracketZoom(-0.15)" class="btn btn-sm" style="width:44px; height:44px; padding:0; font-size:20px; border-radius:12px;">−</button>
+</div>
+
 <button id="fabAdmin" class="fixed-fab hidden btn btn-sm" onclick="openAdmin()">Espace organisateurs</button>
 
 <script>
@@ -653,6 +655,8 @@ function setTab(t){
     document.getElementById('tab-'+k).classList.toggle('hidden', k!==t);
     document.getElementById('nav'+k[0].toUpperCase()+k.slice(1)).classList.toggle('active', k===t);
   });
+  var zoomFab = document.getElementById('bracketZoomFab');
+  if(zoomFab) zoomFab.classList.toggle('hidden', t!=='bracket');
   renderAll();
   if(t==='bracket') requestAnimationFrame(drawBracketConnectors);
 }
@@ -1116,6 +1120,7 @@ var COL_W = 220;        // largeur d'une carte
 var COL_GAP = 90;       // espace horizontal entre colonnes
 var CARD_SLOT = 250;    // hauteur d'un "créneau" vertical au 1er tour (carte + marge)
 var LABEL_H = 26;       // hauteur du titre de colonne
+var bracketLayout = null; // { cols, yCenters, totalWidth, totalHeight } — mis à jour par renderBracket
 
 function renderBracket(){
   const innerWrapEl = document.getElementById('bracketInnerWrap');
@@ -1201,6 +1206,9 @@ function renderBracket(){
   });
   html += '</div>';
 
+  // Sauvegarder le layout pour que drawBracketConnectors puisse tracer sans DOM
+  bracketLayout = { cols:cols, yCenters:yCenters, totalWidth:totalWidth, totalHeight:totalHeight };
+
   var innerWrap = document.getElementById('bracketInnerWrap');
   if(innerWrap) innerWrap.innerHTML = html;
   // positionner les logos au centre absolu de l'arbre
@@ -1220,74 +1228,77 @@ function leftHalf(arr){ return arr.slice(0, halfOf(arr)); }
 function rightHalf(arr){ return arr.slice(halfOf(arr)); }
 
 // petit débordement pour être sûr que le trait touche visuellement la carte cible
-var CONNECT_OVERSHOOT = 4;
-
-function connectPair(elA, elB, elT, base, mirrored){
-  const rA = elA.getBoundingClientRect(), rB = elB.getBoundingClientRect(), rT = elT.getBoundingClientRect();
-  const x1 = (mirrored ? rA.left : rA.right) - base.left;
-  const y1 = rA.top + rA.height/2 - base.top;
-  const y2 = rB.top + rB.height/2 - base.top;
-  let xt = (mirrored ? rT.right : rT.left) - base.left;
-  xt = mirrored ? xt - CONNECT_OVERSHOOT : xt + CONNECT_OVERSHOOT;
-  const xmid = x1 + (xt - x1) / 2;
-  const ymid = (y1 + y2) / 2;
-  if(![x1,y1,y2,xt,xmid,ymid].every(isFinite)) return '';
-  return `M ${x1} ${y1} L ${xmid} ${y1} L ${xmid} ${y2} M ${x1} ${y2} L ${xmid} ${y2} M ${xmid} ${ymid} L ${xt} ${ymid} `;
-}
-
-function connectSingle(elA, elT, base, mirrored){
-  const rA = elA.getBoundingClientRect(), rT = elT.getBoundingClientRect();
-  const x1 = (mirrored ? rA.left : rA.right) - base.left;
-  const y1 = rA.top + rA.height/2 - base.top;
-  let xt = (mirrored ? rT.right : rT.left) - base.left;
-  xt = mirrored ? xt - CONNECT_OVERSHOOT : xt + CONNECT_OVERSHOOT;
-  const yt = rT.top + rT.height/2 - base.top;
-  const xmid = x1 + (xt - x1) / 2;
-  if(![x1,y1,xt,yt,xmid].every(isFinite)) return '';
-  return `M ${x1} ${y1} L ${xmid} ${y1} L ${xmid} ${yt} L ${xt} ${yt} `;
-}
 
 function drawBracketConnectors(){
-  if(!state.bracket) return;
+  if(!state.bracket || !bracketLayout) return;
   const inner = document.getElementById('bracketInner');
   const svg = document.getElementById('bracketSvg');
   if(!inner || !svg) return;
-  const w = inner.offsetWidth, h = inner.offsetHeight;
+  const w = bracketLayout.totalWidth, h = bracketLayout.totalHeight;
   if(w===0 || h===0) return;
   svg.setAttribute('width', w);
   svg.setAttribute('height', h);
   svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
-  const base = inner.getBoundingClientRect();
+
+  const cols = bracketLayout.cols;
+  const yCenters = bracketLayout.yCenters;
   const rounds = state.bracket.rounds;
+
+  // Coordonnée X du bord droit d'une colonne gauche, ou bord gauche d'une colonne droite/finale
+  function colX(ci){ return ci * (COL_W + COL_GAP); }
+  function rightEdge(ci){ return colX(ci) + COL_W; }
+  function leftEdge(ci){ return colX(ci); }
+
+  function segPair(ciA, iA1, iA2, ciT, iT, mirrored){
+    const yA1 = yCenters[ciA][iA1], yA2 = yCenters[ciA][iA2], yT = yCenters[ciT][iT];
+    const x1 = mirrored ? leftEdge(ciA) : rightEdge(ciA);
+    const xt = mirrored ? rightEdge(ciT) : leftEdge(ciT);
+    const xmid = (x1 + xt) / 2;
+    const ymid = (yA1 + yA2) / 2;
+    return `M ${x1} ${yA1} L ${xmid} ${yA1} L ${xmid} ${yA2} M ${x1} ${yA2} L ${xmid} ${yA2} M ${xmid} ${ymid} L ${xt} ${ymid} `;
+  }
+
+  function segSingle(ciA, iA, ciT, iT, mirrored){
+    const yA = yCenters[ciA][iA], yT = yCenters[ciT][iT];
+    const x1 = mirrored ? leftEdge(ciA) : rightEdge(ciA);
+    const xt = mirrored ? rightEdge(ciT) : leftEdge(ciT);
+    const xmid = (x1 + xt) / 2;
+    return `M ${x1} ${yA} L ${xmid} ${yA} L ${xmid} ${yT} L ${xt} ${yT} `;
+  }
+
+  // Trouver l'index de colonne pour chaque côté/round
+  // cols: [L-R0, L-R1, L-R2, L-R3, C, R-R3, R-R2, R-R1, R-R0]
+  // index:   0     1     2     3   4    5      6     7     8
+  function getCi(side, rIdx){
+    if(side==='C') return 4;
+    if(side==='L') return rIdx;
+    return 8 - rIdx; // R: R0=8, R1=7, R2=6, R3=5
+  }
+
   let dNormal = '', dActive = '';
+
+  // Gauche : R0->R1->R2->R3 (chaque paire de R[n] donne un match R[n+1])
   for(let r=0; r<3; r++){
     const curL = leftHalf(rounds[r].matches), nextL = leftHalf(rounds[r+1].matches);
     const curR = rightHalf(rounds[r].matches), nextR = rightHalf(rounds[r+1].matches);
-    nextL.forEach((m,i)=>{
-      const elA = byId(curL[2*i]), elB = byId(curL[2*i+1]), elT = byId(m);
-      if(!elA || !elB || !elT) return;
-      const seg = connectPair(elA, elB, elT, base, false);
+    const ciCurL = getCi('L', r), ciNextL = getCi('L', r+1);
+    const ciCurR = getCi('R', r), ciNextR = getCi('R', r+1);
+    nextL.forEach((m, i)=>{
+      const seg = segPair(ciCurL, 2*i, 2*i+1, ciNextL, i, false);
       if(m.status==='pending') dActive += seg; else dNormal += seg;
     });
-    nextR.forEach((m,i)=>{
-      const elA = byId(curR[2*i]), elB = byId(curR[2*i+1]), elT = byId(m);
-      if(!elA || !elB || !elT) return;
-      const seg = connectPair(elA, elB, elT, base, true);
+    nextR.forEach((m, i)=>{
+      const seg = segPair(ciCurR, 2*i, 2*i+1, ciNextR, i, true);
       if(m.status==='pending') dActive += seg; else dNormal += seg;
     });
   }
-  const demiL = leftHalf(rounds[3].matches)[0];
-  const demiR = rightHalf(rounds[3].matches)[0];
+  // Demi-finales → Finale
   const finalM = rounds[4].matches[0];
-  const elDL = byId(demiL), elDR = byId(demiR), elF = byId(finalM);
-  if(elDL && elF){
-    const seg = connectSingle(elDL, elF, base, false);
-    if(finalM.status==='pending') dActive += seg; else dNormal += seg;
-  }
-  if(elDR && elF){
-    const seg = connectSingle(elDR, elF, base, true);
-    if(finalM.status==='pending') dActive += seg; else dNormal += seg;
-  }
+  const ciDemiL = getCi('L', 3), ciDemiR = getCi('R', 3), ciF = 4;
+  const segL = segSingle(ciDemiL, 0, ciF, 0, false);
+  const segR = segSingle(ciDemiR, 0, ciF, 0, true);
+  if(finalM.status==='pending'){ dActive += segL + segR; } else { dNormal += segL + segR; }
+
   svg.innerHTML = `
     <path d="${dNormal}" fill="none" stroke="#3A4260" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     <path d="${dActive}" fill="none" stroke="var(--red2, #FF4757)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="connector-live"/>
@@ -1601,6 +1612,8 @@ function initIntro(){
   tickViewers();
   await refreshPlayers();
   await refreshAll();
+  var zf = document.getElementById('bracketZoomFab');
+  if(zf) zf.classList.remove('hidden');
   setupRealtime();
 })();
 </script>
