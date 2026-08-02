@@ -184,10 +184,11 @@
     <div id="gatePlayer" class="hidden">
       <button class="link-back" onclick="showGateStep('welcome')">← Retour</button>
       <div class="card" style="padding:20px; margin-top:8px;">
-        <p class="small muted" style="margin-top:0;">Entre le numéro donné à l'organisateur lors de ton inscription — on te retrouve automatiquement dans l'arbre.</p>
-        <input id="gatePlayerTel" type="tel" placeholder="Ton numéro" class="input" style="margin-bottom:4px;">
+        <p class="small muted" style="margin-top:0;">Entre ton numéro et le code PIN donnés par l'organisateur lors de ton inscription.</p>
+        <input id="gatePlayerTel" type="tel" placeholder="Ton numéro" class="input">
+        <input id="gatePlayerPin" type="text" inputmode="numeric" maxlength="4" placeholder="Code PIN (4 chiffres)" class="input" style="margin-bottom:4px; text-align:center; letter-spacing:4px; font-size:20px;">
         <button onclick="enterSitePlayer()" class="btn btn-primary" style="margin-top:10px;">Me retrouver dans le tournoi</button>
-        <p id="gatePlayerError" class="red small hidden" style="margin-top:8px; margin-bottom:0;">Numéro non reconnu — vérifie auprès de l'organisateur, ou entre en mode spectateur.</p>
+        <p id="gatePlayerError" class="red small hidden" style="margin-top:8px; margin-bottom:0;">Numéro ou code incorrect — vérifie auprès de l'organisateur, ou entre en mode spectateur.</p>
       </div>
     </div>
 
@@ -316,7 +317,7 @@
         <input id="pAge" type="number" placeholder="Âge" class="input input-sm">
         <input id="pClub" list="clubList" placeholder="Club (EA FC)" class="input input-sm">
       </div>
-      <input id="pTel" type="tel" placeholder="Numéro (pour qu'il se reconnaisse sur le site)" class="input input-sm" style="margin-bottom:8px;">
+      <input id="pTel" type="tel" placeholder="Numéro de téléphone du joueur" class="input input-sm" style="margin-bottom:8px;">
       <datalist id="clubList">
         <option value="PSG"><option value="Real Madrid"><option value="Manchester City">
         <option value="Liverpool"><option value="Barcelone"><option value="Bayern Munich">
@@ -346,13 +347,39 @@
     </div>
 
     <div class="card" style="padding:16px; margin-bottom:16px;">
-      <div style="font-weight:600; font-size:14px; margin-bottom:12px;">Matchs — saisir les résultats</div>
+      <div style="font-weight:600; font-size:14px; margin-bottom:8px;">Matchs — saisir les résultats</div>
       <div id="adminMatches" class="col gap-md"></div>
     </div>
 
-    <div class="card" style="padding:16px;">
+    <div class="card" style="padding:16px; margin-bottom:16px;">
+      <div class="row between" style="margin-bottom:8px;">
+        <div style="font-weight:600; font-size:14px;">Tous les paris</div>
+        <div class="chip gold" id="betsWinnersCount"></div>
+      </div>
+      <p class="small muted" style="margin-top:0;">Les gagnants (✅) ont droit à -15% chez Shakpot.</p>
+      <div id="allBetsList" class="col gap-xs"></div>
+    </div>
+
+    <div class="card" style="padding:16px; margin-bottom:16px;">
       <div style="font-weight:600; font-size:14px; margin-bottom:12px;">Classement</div>
       <div id="adminClassement"></div>
+    </div>
+
+    <div class="card" style="padding:16px; margin-bottom:24px;">
+      <div style="font-weight:600; font-size:14px; margin-bottom:8px;">Outils de test (seeders)</div>
+      <p class="small muted" style="margin-top:0;">Génère de faux joueurs / paris / spectateurs pour tester l'arbre, le classement et les paris.</p>
+      <div class="row gap-sm" style="margin-bottom:8px;">
+        <input id="seedPlayersN" type="number" min="1" max="24" value="24" class="input input-sm" style="max-width:70px;">
+        <button onclick="seedPlayers()" class="btn btn-sm g1">Générer joueurs</button>
+      </div>
+      <div class="row gap-sm" style="margin-bottom:8px;">
+        <input id="seedBettorsN" type="number" min="1" max="50" value="10" class="input input-sm" style="max-width:70px;">
+        <button onclick="seedBettors()" class="btn btn-sm g1">Générer parieurs</button>
+      </div>
+      <div class="row gap-sm">
+        <input id="seedSpectatorsN" type="number" min="1" max="150" value="50" class="input input-sm" style="max-width:70px;">
+        <button onclick="seedSpectators()" class="btn btn-sm g1">Générer spectateurs</button>
+      </div>
     </div>
   </div>
 </div>
@@ -394,6 +421,11 @@ async function refreshAll(){
     state.players = players || [];
     state.bracket = (stateRows && stateRows[0] && stateRows[0].bracket) || null;
     state.adminPhones = (stateRows && stateRows[0] && stateRows[0].admins) || ["77743322"];
+    var newViewerBase = stateRows && stateRows[0] && stateRows[0].viewer_base;
+    if(newViewerBase && newViewerBase !== state.viewerBase){
+      state.viewerBase = newViewerBase;
+      viewerCount = newViewerBase;
+    }
     refreshAdminButtonVisibility();
     bets = {};
     (betRows||[]).forEach(r=>{
@@ -439,9 +471,10 @@ function enterSiteSpectator(){
 
 function enterSitePlayer(){
   const tel = document.getElementById('gatePlayerTel').value.trim();
+  const pin = document.getElementById('gatePlayerPin').value.trim();
   const err = document.getElementById('gatePlayerError');
-  if(!tel){ err.classList.remove('hidden'); return; }
-  const player = state.players.find(p => p.tel && p.tel.replace(/\s/g,'') === tel.replace(/\s/g,''));
+  if(!tel || !pin){ err.classList.remove('hidden'); return; }
+  const player = state.players.find(p => p.tel && normTel(p.tel) === normTel(tel) && p.pin === pin);
   if(!player){ err.classList.remove('hidden'); return; }
   err.classList.add('hidden');
   spectator = {nom: `${player.prenom} ${player.nom}`, tel: player.tel};
@@ -601,6 +634,8 @@ async function saveAdminPhones(){
 }
 
 // ---------- admin actions ----------
+function randomPin(){ return String(Math.floor(1000 + Math.random()*9000)); }
+
 async function addPlayer(){
   const nom = document.getElementById('pNom').value.trim();
   const prenom = document.getElementById('pPrenom').value.trim();
@@ -611,7 +646,7 @@ async function addPlayer(){
   if(!nom || !prenom || !age || !club || !tel){ err.textContent="Remplis tous les champs (le numéro est obligatoire)."; err.classList.remove('hidden'); return; }
   if(state.players.length>=24){ err.textContent="24 joueurs déjà inscrits."; err.classList.remove('hidden'); return; }
   err.classList.add('hidden');
-  const player = {id:'p_'+Date.now()+'_'+Math.floor(Math.random()*1000), nom, prenom, age: parseInt(age), club, tel};
+  const player = {id:'p_'+Date.now()+'_'+Math.floor(Math.random()*1000), nom, prenom, age: parseInt(age), club, tel, pin: randomPin()};
   const {error} = await sb.from('players').insert(player);
   if(error){ err.textContent="Erreur d'enregistrement : "+error.message; err.classList.remove('hidden'); return; }
   document.getElementById('pNom').value='';
@@ -638,6 +673,72 @@ async function resetAll(){
   await sb.from('players').delete().neq('id','');
   state.bracket = null;
   await saveBracket();
+  await refreshAll();
+}
+
+// ---------- seeders (données de test) ----------
+var FAKE_PRENOMS = ["Ahmed","Youssouf","Moussa","Ibrahim","Omar","Said","Hassan","Abdi","Farah","Kader","Mohamed","Ali","Waberi","Guelleh","Idriss","Nour","Samir","Rayan","Yacin","Zakaria","Amir","Bilal","Cheikh","Djama"];
+var FAKE_NOMS = ["Aden","Warsame","Robleh","Farah","Guelleh","Doualeh","Elmi","Hersi","Kamil","Osman","Yonis","Ismail","Cheikh","Barreh","Souleiman","Awaleh"];
+var FAKE_CLUBS = ["PSG","Real Madrid","Manchester City","Liverpool","Barcelone","Bayern Munich","Manchester United","Chelsea","Arsenal","Juventus","Inter Milan","AC Milan","Al Nassr","Al Hilal"];
+
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function randomFakeTel(){
+  var tel;
+  do { tel = "77" + String(Math.floor(100000 + Math.random()*900000)); }
+  while(state.players.some(p=>normTel(p.tel)===tel));
+  return tel;
+}
+
+async function seedPlayers(){
+  var n = parseInt(document.getElementById('seedPlayersN').value) || 0;
+  var room = 24 - state.players.length;
+  n = Math.max(0, Math.min(n, room));
+  if(n===0){ alert('Déjà 24 joueurs, ou nombre invalide.'); return; }
+  var rows = [];
+  for(var i=0;i<n;i++){
+    rows.push({
+      id: 'p_seed_'+Date.now()+'_'+i+'_'+Math.floor(Math.random()*1000),
+      nom: pick(FAKE_NOMS), prenom: pick(FAKE_PRENOMS), age: 18+Math.floor(Math.random()*20),
+      club: pick(FAKE_CLUBS), tel: randomFakeTel(), pin: randomPin()
+    });
+    state.players.push(rows[i]); // pour que randomFakeTel() évite les doublons dans la boucle
+  }
+  const {error} = await sb.from('players').insert(rows);
+  if(error){ alert("Erreur seeder joueurs : "+error.message); }
+  await refreshAll();
+  if(state.players.length===24 && !state.bracket){ generateBracket(); await refreshAll(); }
+  renderAdmin();
+}
+
+async function seedBettors(){
+  var n = parseInt(document.getElementById('seedBettorsN').value) || 0;
+  if(!state.bracket){ alert('Génère le tirage (24 joueurs) avant de générer des parieurs.'); return; }
+  var pendingMatches = [];
+  state.bracket.rounds.forEach(round=>{
+    round.matches.forEach(m=>{ if(m.status==='pending' && m.p1 && m.p2) pendingMatches.push(m); });
+  });
+  if(pendingMatches.length===0){ alert('Aucun match en cours pour l\'instant.'); return; }
+  var rows = [];
+  for(var i=0;i<n;i++){
+    var m = pick(pendingMatches);
+    rows.push({
+      match_id: m.id,
+      nom: pick(FAKE_PRENOMS),
+      tel: "90"+String(Math.floor(100000 + Math.random()*900000)),
+      side: Math.random()<0.5 ? 'p1' : 'p2'
+    });
+  }
+  const {error} = await sb.from('bets').insert(rows);
+  if(error){ alert("Erreur seeder parieurs : "+error.message); }
+  await refreshAll();
+  renderAdmin();
+}
+
+async function seedSpectators(){
+  var n = parseInt(document.getElementById('seedSpectatorsN').value) || 0;
+  n = Math.max(1, Math.min(n, 150));
+  try{ await sb.from('tournament_state').upsert({id:1, viewer_base: n}); }
+  catch(e){ alert("Erreur seeder spectateurs : "+e.message); }
   await refreshAll();
 }
 
@@ -845,7 +946,52 @@ function renderMesParis(){
   }
 }
 
+function renderAllBetsAdmin(){
+  const wrap = document.getElementById('allBetsList');
+  const countChip = document.getElementById('betsWinnersCount');
+  if(!wrap) return;
+  const all = [];
+  Object.entries(bets).forEach(([matchId, list])=>{
+    list.forEach(b=> all.push({matchId, ...b}));
+  });
+  let winners = 0;
+  all.forEach(b=>{
+    const m = findMatch(b.matchId);
+    if(m && m.status==='done'){
+      const won = b.side==='p1' ? m.winnerId===m.p1.id : m.winnerId===m.p2.id;
+      if(won) winners++;
+    }
+  });
+  countChip.textContent = `${winners} gagnant${winners===1?'':'s'} · -15%`;
+  if(all.length===0){
+    wrap.innerHTML = `<div class="tiny muted">Aucun pari pour le moment.</div>`;
+    return;
+  }
+  // gagnants d'abord, puis en cours, puis perdants
+  const rank = (b)=>{
+    const m = findMatch(b.matchId);
+    if(!m || m.status!=='done') return 1;
+    const won = b.side==='p1' ? m.winnerId===m.p1.id : m.winnerId===m.p2.id;
+    return won ? 0 : 2;
+  };
+  all.sort((a,b)=> rank(a)-rank(b) || b.ts-a.ts);
+  wrap.innerHTML = all.map(b=>{
+    const m = findMatch(b.matchId);
+    const pick = m ? (b.side==='p1' ? m.p1 : m.p2) : null;
+    let statusHtml = `<span class="chip muted">EN COURS</span>`;
+    if(m && m.status==='done'){
+      const won = b.side==='p1' ? m.winnerId===m.p1.id : m.winnerId===m.p2.id;
+      statusHtml = won ? `<span class="chip gold">✅ GAGNÉ · -15%</span>` : `<span class="chip muted">PERDU</span>`;
+    }
+    return `<div class="row between small" style="border:1px solid var(--line); border-radius:8px; padding:8px 10px;">
+      <span>${b.nom} · <span class="muted tiny">${b.tel}</span> → ${pick?playerLabel(pick):'?'} <span class="tiny muted">(${findRoundName(b.matchId)})</span></span>
+      ${statusHtml}
+    </div>`;
+  }).join('');
+}
+
 function renderAdmin(){
+  renderAllBetsAdmin();
   document.getElementById('playerCount').textContent = `${state.players.length} / 24`;
   const listWrap = document.getElementById('playerListWrap');
   if(state.players.length){
@@ -853,7 +999,7 @@ function renderAdmin(){
       <div style="max-height:190px; overflow-y:auto;">
       ${state.players.map(p=>`<div class="row between small" style="border-bottom:1px solid var(--line); padding:6px 0;">
         <span>${p.prenom} ${p.nom} <span class="muted">· ${p.age} ans</span></span>
-        <span class="muted tiny">${p.club} · ${p.tel||'—'}</span>
+        <span class="muted tiny">${p.club} · ${p.tel||'—'} · PIN <span class="font-mono gold">${p.pin||'—'}</span></span>
       </div>`).join('')}</div>`;
   } else {
     listWrap.innerHTML = '';
@@ -945,7 +1091,7 @@ function tickCountdown(){
 function tickViewers(){
   const el = document.getElementById('viewerCount');
   const now = new Date();
-  if(now < TOURNAMENT_DATE){
+  if(now < TOURNAMENT_DATE && !state.viewerBase){
     el.textContent = 'Dès 19h00';
     return;
   }

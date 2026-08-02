@@ -14,19 +14,23 @@ create table if not exists players (
   age int not null,
   club text not null,
   tel text not null default '',
+  pin text not null default '',
   created_at timestamptz default now()
 );
 
 alter table players add column if not exists tel text not null default '';
+alter table players add column if not exists pin text not null default '';
 
 create table if not exists tournament_state (
   id int primary key,
   bracket jsonb,
   admins jsonb default '["77743322"]'::jsonb,
+  viewer_base int,
   updated_at timestamptz default now()
 );
 
 alter table tournament_state add column if not exists admins jsonb default '["77743322"]'::jsonb;
+alter table tournament_state add column if not exists viewer_base int;
 
 insert into tournament_state (id, bracket, admins)
   values (1, null, '["77743322"]'::jsonb)
