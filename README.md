@@ -7,7 +7,7 @@ Site du tournoi FC26 (24 joueurs, arbre à élimination directe, paris spectateu
 1. Va sur https://supabase.com → **New project**.
 2. Une fois créé, ouvre **SQL Editor** → colle le contenu de `schema.sql` → **Run**.
    Ça crée les tables `players`, `tournament_state`, `bets`, active la sécurité (RLS) et le temps réel.
-3. Va dans **Authentication → Users → Add user** et crée le compte organisateur (email + mot de passe). C'est ce compte qui te connecte à l'espace admin du site.
+3. Pas de compte à créer : l'accès organisateur fonctionne par numéro de téléphone autorisé + code PIN (voir plus bas). Le numéro `77743322` est autorisé par défaut.
 4. Va dans **Project Settings → API** et récupère :
    - `Project URL`
    - `anon public` key
@@ -27,7 +27,8 @@ par tes vraies valeurs. Ce sont des clés **publiques**, sans risque : la vraie 
 
 - Connecte ce repo GitHub à Vercel (Import Project).
 - Aucune configuration nécessaire : c'est un site statique (`index.html` + dossier `assets/`).
-- Une fois en ligne, va sur `tonsite.vercel.app/#admin` (ou clique sur "Espace organisateurs" en bas de page) pour te connecter avec le compte créé à l'étape 1.
+- Une fois en ligne, entre sur le site avec un numéro présent dans la liste des administrateurs (`77743322` par défaut) : le bouton "Espace organisateurs" apparaît en bas de page. Clique dessus et entre le code PIN (`2709` par défaut, modifiable dans `index.html` via la constante `ADMIN_PIN`).
+- Depuis le panneau admin, tu peux ajouter ou retirer des numéros autorisés (carte "Accès organisateurs") — utile pour donner l'accès à un autre joueur ou organisateur sans partager le PIN publiquement.
 
 ## Fonctionnement
 
