@@ -1071,22 +1071,15 @@ function matchCard(m, opts={}){
   return `<div class="match-card${involvesMe?' me':''}${opts.isFinal?' final':''}" id="mc-${m.id}">${body}</div>`;
 }
 
-function halfOf(arr){ return arr.length/2; }
-function leftHalf(arr){ return arr.slice(0, halfOf(arr)); }
-function rightHalf(arr){ return arr.slice(halfOf(arr)); }
 function byId(m){ return document.getElementById('mc-'+m.id); }
 
-function bracketColumn(matches, label, opts){
-  opts = opts || {};
-  return `<div style="flex-shrink:0; width:220px; display:flex; flex-direction:column; justify-content:center;">
-    <div>
-      <div class="chip muted" style="margin-bottom:14px; text-align:center;">${label}</div>
-      <div style="display:flex; flex-direction:column; gap:40px;">
-        ${matches.map(m=>matchCard(m,{allowBet:true, isFinal:!!opts.isFinal})).join('')}
-      </div>
-    </div>
-  </div>`;
-}
+// --- Layout de bracket par positionnement absolu ---
+// Chaque carte est placée à une coordonnée (x,y) calculée. Une carte du tour suivant
+// est centrée verticalement entre ses deux cartes parentes. C'est ça qui fait un vrai arbre.
+var COL_W = 220;        // largeur d'une carte
+var COL_GAP = 90;       // espace horizontal entre colonnes
+var CARD_SLOT = 250;    // hauteur d'un "créneau" vertical au 1er tour (carte + marge)
+var LABEL_H = 26;       // hauteur du titre de colonne
 
 function renderBracket(){
   const wrap = document.getElementById('bracketWrap');
@@ -1099,24 +1092,81 @@ function renderBracket(){
   empty.classList.add('hidden');
   const rounds = state.bracket.rounds; // [R0, R1, R2, R3, Finale]
 
-  let html = '<div id="bracketRounds" class="row" style="gap:88px; align-items:stretch; position:relative; z-index:1;">';
-  // côté gauche : de Round 1 vers Demi-finale
-  for(let r=0;r<4;r++) html += bracketColumn(leftHalf(rounds[r].matches), rounds[r].name.toUpperCase());
-  // centre : finale
-  html += bracketColumn(rounds[4].matches, '🏆 ' + rounds[4].name.toUpperCase(), {isFinal:true});
-  // côté droit (miroir) : de Demi-finale vers Round 1
-  for(let r=3;r>=0;r--) html += bracketColumn(rightHalf(rounds[r].matches), rounds[r].name.toUpperCase());
+  // Colonnes gauche (R0->R3), centre (finale), droite miroir (R3->R0)
+  const cols = [];
+  for(let r=0;r<4;r++) cols.push({ matches: leftHalf(rounds[r].matches), name: rounds[r].name, side:'L' });
+  cols.push({ matches: rounds[4].matches, name: '🏆 ' + rounds[4].name, side:'C', isFinal:true });
+  for(let r=3;r>=0;r--) cols.push({ matches: rightHalf(rounds[r].matches), name: rounds[r].name, side:'R' });
+
+  const nCols = cols.length;
+  const firstColCount = cols[0].matches.length; // nb de matchs dans la 1ère colonne
+  const totalHeight = LABEL_H + firstColCount * CARD_SLOT;
+  const totalWidth = nCols * COL_W + (nCols-1) * COL_GAP;
+
+  // On calcule les centres verticaux PAR CÔTÉ dans le sens naturel R0 -> R3
+  // (R0 = beaucoup de cartes réparties uniformément ; chaque tour suivant = milieu des 2 parents).
+  // Puis on les mappe sur les colonnes d'affichage (gauche normale, droite en miroir).
+  function computeSideCenters(sideRounds){
+    // sideRounds[0] = R0 (le plus de matchs) ... sideRounds[3] = demi (1 match)
+    const res = [];
+    for(let r=0;r<sideRounds.length;r++){
+      const count = sideRounds[r].length;
+      const centers = [];
+      if(r===0){
+        for(let i=0;i<count;i++) centers.push(totalHeight * (i+0.5) / count);
+      } else {
+        const prev = res[r-1];
+        for(let i=0;i<count;i++) centers.push((prev[2*i] + prev[2*i+1]) / 2);
+      }
+      res.push(centers);
+    }
+    return res; // res[roundIndex] = centres
+  }
+
+  const leftRounds = [0,1,2,3].map(r=>leftHalf(rounds[r].matches));
+  const rightRounds = [0,1,2,3].map(r=>rightHalf(rounds[r].matches));
+  const leftCenters = computeSideCenters(leftRounds);   // [R0,R1,R2,R3]
+  const rightCenters = computeSideCenters(rightRounds); // [R0,R1,R2,R3]
+  const finalCenter = totalHeight/2;
+
+  // Associer chaque colonne d'affichage à son tableau de centres
+  const yCenters = [];
+  cols.forEach((col)=>{
+    if(col.side==='C'){ yCenters.push([finalCenter]); return; }
+    // retrouver l'index de round d'après le nom
+    const rIdx = rounds.findIndex(rd=>rd.name===col.name.replace('🏆 ',''));
+    if(col.side==='L') yCenters.push(leftCenters[rIdx]);
+    else yCenters.push(rightCenters[rIdx]);
+  });
+
+  // recentrage vertical du côté droit et de la finale sur la même échelle que la gauche
+  // (la finale a 1 carte -> centre = milieu de la hauteur totale)
+  let html = `<div id="bracketInner" style="position:relative; width:${totalWidth}px; height:${totalHeight}px;">
+    <svg id="bracketSvg" style="position:absolute; top:0; left:0; pointer-events:none;"></svg>`;
+
+  cols.forEach((col, ci)=>{
+    const x = ci * (COL_W + COL_GAP);
+    // titre de colonne
+    html += `<div class="chip muted" style="position:absolute; left:${x}px; top:0; width:${COL_W}px; text-align:center;">${col.name.toUpperCase()}</div>`;
+    col.matches.forEach((m, i)=>{
+      const yc = yCenters[ci][i];
+      html += `<div style="position:absolute; left:${x}px; top:${yc}px; width:${COL_W}px; transform:translateY(-50%);">
+        ${matchCard(m, {allowBet:true, isFinal:!!col.isFinal})}
+      </div>`;
+    });
+  });
   html += '</div>';
 
-  wrap.innerHTML = `<div id="bracketInner" style="position:relative;">
-    <svg id="bracketSvg" style="position:absolute; top:0; left:0; pointer-events:none;"></svg>
-    ${html}
-  </div>`;
+  wrap.innerHTML = html;
   requestAnimationFrame(drawBracketConnectors);
-  requestAnimationFrame(function(){ requestAnimationFrame(drawBracketConnectors); }); // 2e passe (fonts/layout)
+  requestAnimationFrame(function(){ requestAnimationFrame(drawBracketConnectors); });
   setTimeout(drawBracketConnectors, 300);
   if(document.fonts && document.fonts.ready) document.fonts.ready.then(drawBracketConnectors);
 }
+
+function halfOf(arr){ return arr.length/2; }
+function leftHalf(arr){ return arr.slice(0, halfOf(arr)); }
+function rightHalf(arr){ return arr.slice(halfOf(arr)); }
 
 // petit débordement pour être sûr que le trait touche visuellement la carte cible
 var CONNECT_OVERSHOOT = 4;
@@ -1149,17 +1199,13 @@ function connectSingle(elA, elT, base, mirrored){
 function drawBracketConnectors(){
   if(!state.bracket) return;
   const inner = document.getElementById('bracketInner');
-  const roundsEl = document.getElementById('bracketRounds');
   const svg = document.getElementById('bracketSvg');
-  if(!inner || !roundsEl || !svg) return;
-  const w = roundsEl.scrollWidth;
-  const h = roundsEl.scrollHeight;
-  if(w===0 || h===0) return; // pas encore visible (onglet caché)
+  if(!inner || !svg) return;
+  const w = inner.offsetWidth, h = inner.offsetHeight;
+  if(w===0 || h===0) return;
   svg.setAttribute('width', w);
   svg.setAttribute('height', h);
   svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
-  inner.style.width = w+'px';
-  inner.style.height = h+'px';
   const base = inner.getBoundingClientRect();
   const rounds = state.bracket.rounds;
   let dNormal = '', dActive = '';
