@@ -334,12 +334,13 @@
         <div class="empty-state-title">L'arbre arrive bientôt</div>
         <div class="empty-state-text">Les 24 joueurs sont en cours d'inscription chez l'organisateur. Reviens dès que le tirage est lancé pour voir qui affronte qui.</div>
       </div>
-      <div style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:8px;" id="bracketZoomCtrl">
-        <button onclick="bracketZoom(-0.1)" class="btn btn-sm" style="padding:6px 12px; font-size:16px;">−</button>
-        <button onclick="bracketZoomReset()" class="btn btn-sm" style="padding:6px 12px; font-size:11px;">↺</button>
-        <button onclick="bracketZoom(+0.1)" class="btn btn-sm" style="padding:6px 12px; font-size:16px;">＋</button>
+      <div id="bracketZoomCtrl" style="position:sticky; top:0; z-index:10; display:flex; justify-content:flex-end; gap:8px; padding:6px 0; background:var(--bg);">
+        <button onclick="bracketZoom(-0.1)" class="btn btn-sm" style="padding:6px 14px; font-size:16px;">−</button>
+        <button onclick="bracketZoomReset()" class="btn btn-sm" style="padding:6px 10px; font-size:11px;">↺</button>
+        <button onclick="bracketZoom(+0.1)" class="btn btn-sm" style="padding:6px 14px; font-size:16px;">＋</button>
       </div>
       <div id="bracketWrap" style="overflow:auto; -webkit-overflow-scrolling:touch; padding-bottom:16px;">
+        <!-- bracketScale applique le zoom : tout ce qui est dans ce div (cases + SVG) est zoomé ensemble -->
         <div id="bracketScale" style="transform-origin:top left; display:inline-block;">
           <div id="bracketInnerWrap"></div>
         </div>
@@ -622,16 +623,28 @@ function enterSitePlayer(){
 // ---------- tabs ----------
 // ---------- bracket zoom ----------
 var bracketScale = 1.0;
-var BRACKET_MIN = 0.3, BRACKET_MAX = 2.0;
+var BRACKET_MIN = 0.25, BRACKET_MAX = 2.5;
+function applyBracketZoom(){
+  var el = document.getElementById('bracketScale');
+  if(!el) return;
+  el.style.transform = 'scale('+bracketScale+')';
+  // CSS : transform ne modifie pas le flux, on utilise width/height sur le wrapper
+  // pour que le conteneur scrollable voie la vraie taille zoomée
+  var inner = el.firstElementChild && el.firstElementChild.firstElementChild;
+  if(inner){
+    var w = inner.offsetWidth  || 0;
+    var h = inner.offsetHeight || 0;
+    el.style.width  = (w * bracketScale)+'px';
+    el.style.height = (h * bracketScale)+'px';
+  }
+}
 function bracketZoom(delta){
   bracketScale = Math.max(BRACKET_MIN, Math.min(BRACKET_MAX, bracketScale + delta));
-  var el = document.getElementById('bracketScale');
-  if(el) el.style.transform = 'scale('+bracketScale+')';
+  applyBracketZoom();
 }
 function bracketZoomReset(){
   bracketScale = 1.0;
-  var el = document.getElementById('bracketScale');
-  if(el) el.style.transform = 'scale(1)';
+  applyBracketZoom();
 }
 
 function setTab(t){
