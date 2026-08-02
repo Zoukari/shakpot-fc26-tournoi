@@ -109,12 +109,10 @@
   .overflowx::-webkit-scrollbar-thumb{background:var(--line); border-radius:10px;}
 
   .match-card{
-    background:linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
-    background-color: rgba(18,21,31,0.55);
-    border:1px solid rgba(255,255,255,0.14);
-    backdrop-filter: blur(14px) saturate(150%);
-    -webkit-backdrop-filter: blur(14px) saturate(150%);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+    background:linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03));
+    background-color: #171B27;
+    border:1px solid rgba(255,255,255,0.20);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.10);
     border-radius:12px; padding:12px; margin-bottom:0; min-width:210px;
   }
   .match-card.me{border-color:var(--gold); box-shadow:0 0 0 1px rgba(242,183,5,0.35);}
@@ -313,10 +311,6 @@
         <div class="stat">
           <div class="stat-label">En direct</div>
           <div class="stat-value row gap-xs" id="viewerCountWrap"><span class="pulse-dot"></span><span id="viewerCount">Dès 19h00</span></div>
-        </div>
-        <div class="stat" style="min-width:140px;">
-          <div class="stat-label row between"><span>Progression</span><span id="progressPct" class="gold">0%</span></div>
-          <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%;"></div></div>
         </div>
       </div>
     </div>
@@ -985,25 +979,32 @@ function maskPhone(tel){
 function crowdPrediction(matchId, p1, p2){
   const list = bets[matchId] || [];
   if(list.length < 2) return ''; // pas assez de paris pour un pronostic fiable
-  let win1=0, win2=0;
+  let win1=0, win2=0, draws=0;
   const scoreCounts = {};
   list.forEach(b=>{
     if(b.pred1>b.pred2) win1++;
     else if(b.pred2>b.pred1) win2++;
+    else draws++;
     const key = b.pred1+'-'+b.pred2;
     scoreCounts[key] = (scoreCounts[key]||0) + 1;
   });
   const total = list.length;
   let topScore = null, topCount = 0;
   Object.entries(scoreCounts).forEach(([k,c])=>{ if(c>topCount){ topCount=c; topScore=k; } });
-  const draws = total - win1 - win2;
-  const pct1 = Math.round(100*win1/total);
-  const pct2 = Math.round(100*win2/total);
-  const pctDraw = 100 - pct1 - pct2;
+
+  const decided = win1 + win2;
+  if(decided === 0){
+    return `<div style="margin-top:8px;">
+      <div class="tiny muted">📊 Pronostic public (${total} paris) · score le plus parié : ${topScore}</div>
+    </div>`;
+  }
+  // les pourcentages sont calcules sur les paris qui donnent un vainqueur, et totalisent toujours 100%
+  let pct1 = Math.round(100*win1/decided);
+  let pct2 = 100 - pct1;
   return `<div style="margin-top:8px;">
     <div class="tiny muted" style="margin-bottom:4px;">📊 Pronostic public (${total} paris) · score le plus parié : ${topScore}</div>
     <div class="row between tiny" style="margin-bottom:3px;">
-      <span>${p1.prenom} <b class="gold">${pct1}%</b></span>
+      <span>${p1.prenom} <b class="red">${pct1}%</b></span>
       <span><b class="gold">${pct2}%</b> ${p2.prenom}</span>
     </div>
     <div class="gauge-track">
@@ -1409,31 +1410,11 @@ function renderAdmin(){
   </div>`;
 }
 
-function updateProgress(){
-  const fill = document.getElementById('progressFill');
-  const pct = document.getElementById('progressPct');
-  if(!fill || !pct) return;
-  if(!state.bracket){ fill.style.width='0%'; pct.textContent='0%'; return; }
-  let total = 0, done = 0;
-  state.bracket.rounds.forEach(round=>{
-    round.matches.forEach(m=>{
-      if(m.isBye || m.status==='empty') return;
-      if(!m.p1 || !m.p2) return; // pas encore determiné, ne compte pas encore dans le total
-      total++;
-      if(m.status==='done') done++;
-    });
-  });
-  const p = total ? Math.round(100*done/total) : 0;
-  fill.style.width = p+'%';
-  pct.textContent = p+'%';
-}
-
 function renderAll(){
   renderBracket();
   renderProchainsMatches();
   renderClassement();
   renderMesParis();
-  updateProgress();
 }
 
 // ---------- countdown + viewer counter ----------
