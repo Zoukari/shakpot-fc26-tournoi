@@ -350,22 +350,21 @@
 <button id="fabAdmin" class="fixed-fab hidden btn btn-sm" onclick="openAdmin()">Espace organisateurs</button>
 
 <script>
-(function(){
-const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
-const SUPABASE_ANON_KEY = "YOUR-ANON-PUBLIC-KEY";
-const sb = window.sb || (window.sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY));
+var SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
+var SUPABASE_ANON_KEY = "YOUR-ANON-PUBLIC-KEY";
+var sb = window.sb || (window.sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY));
 
-const TOURNAMENT_DATE = new Date("2026-08-07T19:00:00+03:00");
-const ROUND_NAMES = ["Round 1","Huitièmes de finale","Quarts de finale","Demi-finales","Finale"];
+var TOURNAMENT_DATE = new Date("2026-08-07T19:00:00+03:00");
+var ROUND_NAMES = ["Round 1","Huitièmes de finale","Quarts de finale","Demi-finales","Finale"];
 
-let state = { players: [], bracket: null };
-let bets = {}; // { matchId: [{nom, tel, side, ts}] }
-let spectator = null;
-let myPlayerId = null;
-let mode = null; // 'spectator' | 'player'
-let activeTab = 'bracket';
-let isAdmin = false;
-let viewerCount = 20 + Math.floor(Math.random()*40);
+var state = { players: [], bracket: null };
+var bets = {}; // { matchId: [{nom, tel, side, ts}] }
+var spectator = null;
+var myPlayerId = null;
+var mode = null; // 'spectator' | 'player'
+var activeTab = 'bracket';
+var isAdmin = false;
+var viewerCount = 20 + Math.floor(Math.random()*40);
 
 // ---------- data layer (Supabase) ----------
 async function refreshPlayers(){
@@ -932,7 +931,6 @@ function setupRealtime(){
   await checkExistingSession();
   await refreshAll();
   setupRealtime();
-})();
 })();
 </script>
 </body>
