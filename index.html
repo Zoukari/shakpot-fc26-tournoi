@@ -127,6 +127,7 @@
   @media (max-width:420px){
     .stat{min-width:96px;}
     .gate-title{font-size:clamp(26px,10vw,34px);}
+    .seg-btn{font-size:11px; padding:10px 3px;}
   }
 </style>
 </head>
@@ -229,6 +230,7 @@
   <nav class="container" style="padding:0 16px;">
     <div class="segmented">
       <button onclick="setTab('bracket')" id="navBracket" class="seg-btn active">Tableau</button>
+      <button onclick="setTab('prochains')" id="navProchains" class="seg-btn">Prochains</button>
       <button onclick="setTab('classement')" id="navClassement" class="seg-btn">Classement</button>
       <button onclick="setTab('mesparis')" id="navMesparis" class="seg-btn">Paris</button>
     </div>
@@ -243,6 +245,15 @@
         <div class="empty-state-text">Les 24 joueurs sont en cours d'inscription chez l'organisateur. Reviens dès que le tirage est lancé pour voir qui affronte qui.</div>
       </div>
       <div id="bracketWrap" class="overflowx" style="padding-bottom:16px;"></div>
+    </section>
+
+    <section id="tab-prochains" class="hidden">
+      <div id="prochainsEmpty" class="hidden empty-state">
+        <div class="empty-state-icon">⏱️</div>
+        <div class="empty-state-title">Aucun match à venir</div>
+        <div class="empty-state-text">Les prochains matchs à jouer apparaîtront ici dès que l'arbre sera lancé.</div>
+      </div>
+      <div id="prochainsList" class="col gap-sm"></div>
     </section>
 
     <section id="tab-classement" class="hidden">
@@ -486,11 +497,12 @@ function enterSitePlayer(){
 // ---------- tabs ----------
 function setTab(t){
   activeTab = t;
-  ['bracket','classement','mesparis'].forEach(k=>{
+  ['bracket','prochains','classement','mesparis'].forEach(k=>{
     document.getElementById('tab-'+k).classList.toggle('hidden', k!==t);
     document.getElementById('nav'+k[0].toUpperCase()+k.slice(1)).classList.toggle('active', k===t);
   });
   renderAll();
+  if(t==='bracket') requestAnimationFrame(drawBracketConnectors);
 }
 
 // ---------- bracket generation ----------
@@ -850,7 +862,7 @@ function matchCard(m, opts={}){
     }
   }
 
-  return `<div class="match-card${involvesMe?' me':''}">${body}</div>`;
+  return `<div class="match-card${involvesMe?' me':''}" id="mc-${m.id}">${body}</div>`;
 }
 
 function renderBracket(){
@@ -862,15 +874,80 @@ function renderBracket(){
     return;
   }
   empty.classList.add('hidden');
-  let html = '<div class="row" style="gap:16px; align-items:flex-start;">';
+  let rounds = '<div id="bracketRounds" class="row" style="gap:56px; align-items:flex-start; position:relative; z-index:1;">';
   state.bracket.rounds.forEach(round=>{
-    html += `<div style="flex-shrink:0; width:220px;">
+    rounds += `<div style="flex-shrink:0; width:220px;">
       <div class="chip muted" style="margin-bottom:8px;">${round.name.toUpperCase()}</div>
       ${round.matches.map(m=>matchCard(m,{allowBet:true})).join('')}
     </div>`;
   });
-  html += '</div>';
-  wrap.innerHTML = html;
+  rounds += '</div>';
+  wrap.innerHTML = `<div id="bracketInner" style="position:relative;">
+    <svg id="bracketSvg" style="position:absolute; top:0; left:0; pointer-events:none;"></svg>
+    ${rounds}
+  </div>`;
+  requestAnimationFrame(drawBracketConnectors);
+}
+
+function drawBracketConnectors(){
+  if(!state.bracket) return;
+  const inner = document.getElementById('bracketInner');
+  const roundsEl = document.getElementById('bracketRounds');
+  const svg = document.getElementById('bracketSvg');
+  if(!inner || !roundsEl || !svg) return;
+  const w = roundsEl.scrollWidth;
+  const h = roundsEl.scrollHeight;
+  if(w===0 || h===0) return; // pas encore visible (onglet caché)
+  svg.setAttribute('width', w);
+  svg.setAttribute('height', h);
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  inner.style.width = w+'px';
+  inner.style.height = h+'px';
+  const base = inner.getBoundingClientRect();
+  const rounds = state.bracket.rounds;
+  let d = '';
+  for(let r=0; r<rounds.length-1; r++){
+    const cur = rounds[r].matches;
+    const next = rounds[r+1].matches;
+    next.forEach((m, i)=>{
+      const el1 = document.getElementById('mc-'+cur[2*i].id);
+      const el2 = document.getElementById('mc-'+cur[2*i+1].id);
+      const elT = document.getElementById('mc-'+m.id);
+      if(!el1 || !el2 || !elT) return;
+      const b1 = el1.getBoundingClientRect(), b2 = el2.getBoundingClientRect(), bt = elT.getBoundingClientRect();
+      const x1 = b1.right - base.left;
+      const y1 = b1.top + b1.height/2 - base.top;
+      const y2 = b2.top + b2.height/2 - base.top;
+      const xt = bt.left - base.left;
+      const xmid = x1 + (xt - x1) / 2;
+      const ymid = (y1 + y2) / 2;
+      d += `M ${x1} ${y1} H ${xmid} V ${y2} M ${x1} ${y2} H ${xmid} M ${xmid} ${ymid} H ${xt} `;
+    });
+  }
+  svg.innerHTML = `<path d="${d}" fill="none" stroke="#3A4260" stroke-width="2" stroke-linecap="round"/>`;
+}
+
+window.addEventListener('resize', function(){ requestAnimationFrame(drawBracketConnectors); });
+
+function renderProchainsMatches(){
+  const wrap = document.getElementById('prochainsList');
+  const empty = document.getElementById('prochainsEmpty');
+  if(!wrap || !empty) return;
+  if(!state.bracket){ wrap.innerHTML=''; empty.classList.remove('hidden'); return; }
+  const upcoming = [];
+  state.bracket.rounds.forEach(round=>{
+    round.matches.forEach(m=>{
+      if(m.status==='pending' && m.p1 && m.p2) upcoming.push({m, roundName: round.name});
+    });
+  });
+  if(upcoming.length===0){ wrap.innerHTML=''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  let lastRound = null;
+  wrap.innerHTML = upcoming.map(({m, roundName})=>{
+    let header = '';
+    if(roundName !== lastRound){ header = `<div class="chip muted" style="margin-top:4px;">${roundName.toUpperCase()}</div>`; lastRound = roundName; }
+    return header + matchCard(m, {allowBet:true});
+  }).join('');
 }
 
 function renderClassement(){
@@ -1071,6 +1148,7 @@ function renderAdmin(){
 
 function renderAll(){
   renderBracket();
+  renderProchainsMatches();
   renderClassement();
   renderMesParis();
 }
