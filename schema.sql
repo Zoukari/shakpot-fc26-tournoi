@@ -9,8 +9,12 @@ create table if not exists players (
   prenom text not null,
   age int not null,
   club text not null,
+  tel text not null default '',
   created_at timestamptz default now()
 );
+
+-- Si la table existait déjà avant cette mise à jour, cette ligne ajoute la colonne sans tout casser :
+alter table players add column if not exists tel text not null default '';
 
 create table if not exists tournament_state (
   id int primary key,
