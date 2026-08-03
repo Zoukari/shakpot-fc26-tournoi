@@ -401,7 +401,8 @@
 <div id="betModal" class="hidden modal-backdrop">
   <div class="modal-box">
     <div class="font-display" style="font-size:18px; margin-bottom:4px;">🎲 Devine le score exact</div>
-    <p class="small muted" style="margin-top:0; margin-bottom:16px;">Score pile = -15% chez Battleground Space.</p>
+    <p class="small muted" style="margin-top:0; margin-bottom:6px;">Score pile = -15% chez Battleground Space.</p>
+    <p class="small" style="margin-top:0; margin-bottom:16px; color:var(--gold);" id="betModalLeft"></p>
     <div class="row gap-sm" style="align-items:flex-end; margin-bottom:14px;">
       <div class="col g1">
         <div class="small" style="margin-bottom:6px; text-align:center; font-weight:600;" id="betModalP1Name"></div>
@@ -523,10 +524,24 @@
         <button onclick="seedPlayers()" class="btn btn-sm g1">Générer joueurs</button>
         <button onclick="clearSeedPlayers()" class="btn btn-sm btn-danger">Effacer</button>
       </div>
-      <div class="row gap-sm" style="margin-bottom:8px;">
-        <input id="seedBettorsN" type="number" min="1" max="50" value="10" class="input input-sm" style="max-width:70px;">
-        <button onclick="seedBettors()" class="btn btn-sm g1">Générer parieurs</button>
-        <button onclick="clearSeedBettors()" class="btn btn-sm btn-danger">Effacer</button>
+      <div class="card" style="padding:10px; margin-bottom:8px;">
+        <div class="row gap-sm" style="margin-bottom:6px;">
+          <span class="tiny muted" style="min-width:52px;">Cible</span>
+          <select id="seedBetTarget" onchange="onSeedTargetChange()" class="input input-sm g1"></select>
+        </div>
+        <div id="seedFavoriWrap" class="row gap-sm" style="margin-bottom:6px;">
+          <span class="tiny muted" style="min-width:52px;">Favori</span>
+          <select id="seedBetFavori" class="input input-sm g1"></select>
+          <input id="seedBetPct" type="number" min="0" max="100" value="70" class="input input-sm" style="max-width:64px;">
+          <span class="tiny muted">%</span>
+        </div>
+        <div class="row gap-sm">
+          <span class="tiny muted" style="min-width:52px;">Nombre</span>
+          <input id="seedBettorsN" type="number" min="1" max="200" value="10" class="input input-sm" style="max-width:70px;">
+          <button onclick="seedBettors()" class="btn btn-sm g1">Générer parieurs</button>
+          <button onclick="clearSeedBettors()" class="btn btn-sm btn-danger">Effacer</button>
+        </div>
+        <div id="seedBetHint" class="tiny muted" style="margin-top:6px;"></div>
       </div>
       <div class="row gap-sm">
         <input id="seedSpectatorsN" type="number" min="1" max="150" value="50" class="input input-sm" style="max-width:70px;">
@@ -962,28 +977,116 @@ async function seedPlayers(){
   renderAdmin();
 }
 
-async function seedBettors(){
-  var n = parseInt(document.getElementById('seedBettorsN').value) || 0;
-  if(!state.bracket){ alert('Génère le tirage avant de générer des parieurs.'); return; }
-  var pendingMatches = [];
-  state.bracket.rounds.forEach(round=>{
-    round.matches.forEach(m=>{ if(m.status==='pending' && m.p1 && m.p2) pendingMatches.push(m); });
+// --- cibles de pari disponibles (matchs jouables + tours complets) ---
+function pendingMatchesByRound(){
+  var out = [];
+  if(!state.bracket) return out;
+  state.bracket.rounds.forEach(function(round, ri){
+    var ms = round.matches.filter(function(m){ return m.status==='pending' && m.p1 && m.p2; });
+    if(ms.length) out.push({ri:ri, name:round.name, matches:ms});
   });
-  if(pendingMatches.length===0){ alert('Aucun match en cours pour l\'instant.'); return; }
-  var rows = [];
-  for(var i=0;i<n;i++){
-    var m = pick(pendingMatches);
-    rows.push({
-      match_id: m.id,
-      nom: pick(FAKE_PRENOMS),
-      tel: "90"+String(Math.floor(100000 + Math.random()*900000)),
-      pred1: Math.floor(Math.random()*5),
-      pred2: Math.floor(Math.random()*5),
-      is_seed: true
+  return out;
+}
+
+function refreshSeedBetTargets(){
+  var sel = document.getElementById('seedBetTarget');
+  if(!sel) return;
+  var prev = sel.value;
+  var groups = pendingMatchesByRound();
+  var html = '';
+  if(!groups.length){
+    html = '<option value="">Aucun match jouable</option>';
+  } else {
+    groups.forEach(function(g){
+      html += '<option value="round:'+g.ri+'">Tout le tour — '+g.name+' ('+g.matches.length+' matchs)</option>';
+    });
+    groups.forEach(function(g){
+      g.matches.forEach(function(m){
+        html += '<option value="match:'+m.id+'">'+g.name+' — '+playerLabel(m.p1)+' vs '+playerLabel(m.p2)+'</option>';
+      });
     });
   }
+  sel.innerHTML = html;
+  if(prev){ sel.value = prev; if(!sel.value) sel.selectedIndex = 0; }
+  onSeedTargetChange();
+}
+
+function onSeedTargetChange(){
+  var sel = document.getElementById('seedBetTarget');
+  var wrap = document.getElementById('seedFavoriWrap');
+  var fav = document.getElementById('seedBetFavori');
+  var hint = document.getElementById('seedBetHint');
+  if(!sel || !wrap || !fav) return;
+  var v = sel.value || '';
+  if(v.indexOf('match:') === 0){
+    var m = findMatch(v.slice(6));
+    wrap.classList.remove('hidden');
+    fav.innerHTML = m ? ('<option value="p1">'+playerLabel(m.p1)+'</option><option value="p2">'+playerLabel(m.p2)+'</option>') : '';
+    if(hint) hint.textContent = "Le % indique la part des parieurs qui misent sur une victoire du favori. Le reste mise sur l'autre joueur.";
+  } else {
+    wrap.classList.add('hidden');
+    if(hint) hint.textContent = "Tour complet : les parieurs sont répartis sur tous les matchs du tour, et le favori de chaque match est tiré au hasard.";
+  }
+}
+
+// score aleatoire ou "gagnant" gagne
+function randomScoreFor(winnerSide){
+  var w = 1 + Math.floor(Math.random()*4);      // 1..4
+  var l = Math.floor(Math.random()*w);          // 0..w-1
+  return winnerSide === 'p1' ? [w, l] : [l, w];
+}
+
+function makeFakeBet(matchId, winnerSide){
+  var sc = randomScoreFor(winnerSide);
+  return {
+    match_id: matchId,
+    nom: pick(FAKE_PRENOMS),
+    tel: "90"+String(Math.floor(100000 + Math.random()*900000)),
+    pred1: sc[0], pred2: sc[1],
+    is_seed: true
+  };
+}
+
+async function seedBettors(){
+  if(!state.bracket){ alert('Génère le tirage avant de générer des parieurs.'); return; }
+  var n = parseInt(document.getElementById('seedBettorsN').value) || 0;
+  n = Math.max(1, Math.min(n, 200));
+  var target = (document.getElementById('seedBetTarget')||{}).value || '';
+  if(!target){ alert("Aucun match jouable pour l'instant."); return; }
+
+  var rows = [];
+
+  if(target.indexOf('match:') === 0){
+    // --- un seul match, favori et % choisis ---
+    var mid = target.slice(6);
+    var m = findMatch(mid);
+    if(!m || !m.p1 || !m.p2){ alert('Match introuvable.'); return; }
+    var favSide = (document.getElementById('seedBetFavori')||{}).value || 'p1';
+    var pct = parseInt((document.getElementById('seedBetPct')||{}).value);
+    if(isNaN(pct)) pct = 70;
+    pct = Math.max(0, Math.min(100, pct));
+    var otherSide = favSide === 'p1' ? 'p2' : 'p1';
+    var nFav = Math.round(n * pct / 100);
+    for(var i=0;i<n;i++) rows.push(makeFakeBet(mid, i < nFav ? favSide : otherSide));
+  } else {
+    // --- tour complet : favori aleatoire par match ---
+    var ri = parseInt(target.slice(6));
+    var round = state.bracket.rounds[ri];
+    var ms = round ? round.matches.filter(function(x){ return x.status==='pending' && x.p1 && x.p2; }) : [];
+    if(!ms.length){ alert('Aucun match jouable dans ce tour.'); return; }
+    // favori tire au hasard pour chaque match, avec une force aleatoire
+    var cfg = ms.map(function(x){
+      return { id:x.id, fav: Math.random()<0.5 ? 'p1' : 'p2', pct: 55 + Math.floor(Math.random()*31) };
+    });
+    for(var j=0;j<n;j++){
+      var c2 = cfg[j % cfg.length];
+      var side = (Math.random()*100 < c2.pct) ? c2.fav : (c2.fav==='p1'?'p2':'p1');
+      rows.push(makeFakeBet(c2.id, side));
+    }
+  }
+
   const {error} = await sb.from('bets').insert(rows);
-  if(error){ alert("Erreur seeder parieurs : "+error.message); }
+  if(error){ alert("Erreur seeder parieurs : "+error.message); return; }
   await refreshAll();
   renderAdmin();
 }
@@ -1043,12 +1146,32 @@ async function submitScore(matchId){
 }
 
 // ---------- betting (public) ----------
+// Nombre maximum de paris qu'un même spectateur peut placer sur tout le tournoi.
+var MAX_BETS_PER_SPECTATOR = 5;
+
+function myBetsCount(){
+  if(!spectator) return 0;
+  var n = 0;
+  Object.keys(bets).forEach(function(mid){
+    if((bets[mid]||[]).some(function(b){ return b.tel === spectator.tel; })) n++;
+  });
+  return n;
+}
+function myBetsLeft(){ return Math.max(0, MAX_BETS_PER_SPECTATOR - myBetsCount()); }
+
 var betModalMatchId = null;
 
 function openBetModal(matchId){
   const m = findMatch(matchId);
   if(!m || !m.p1 || !m.p2) return;
+  const already = (bets[matchId]||[]).some(b=>b.tel === (spectator && spectator.tel));
+  if(!already && myBetsLeft() <= 0){
+    alert('Tu as déjà utilisé tes ' + MAX_BETS_PER_SPECTATOR + ' paris pour ce tournoi.');
+    return;
+  }
   betModalMatchId = matchId;
+  var leftEl = document.getElementById('betModalLeft');
+  if(leftEl) leftEl.textContent = 'Il te reste ' + myBetsLeft() + ' pari(s) sur ' + MAX_BETS_PER_SPECTATOR + '.';
   document.getElementById('betModalP1Name').textContent = m.p1.prenom + ' ' + m.p1.nom;
   document.getElementById('betModalP2Name').textContent = m.p2.prenom + ' ' + m.p2.nom;
   document.getElementById('betModalS1').value = '';
@@ -1064,6 +1187,10 @@ async function confirmBet(){
   const matchId = betModalMatchId;
   const existing = (bets[matchId]||[]).find(b=>b.tel===spectator.tel);
   if(existing){ closeBetModal(); return; }
+  if(myBetsLeft() <= 0){
+    alert('Tu as atteint la limite de ' + MAX_BETS_PER_SPECTATOR + ' paris pour ce tournoi.');
+    closeBetModal(); return;
+  }
   const p1 = parseInt(document.getElementById('betModalS1').value);
   const p2 = parseInt(document.getElementById('betModalS2').value);
   if(isNaN(p1) || isNaN(p2) || p1<0 || p2<0){ alert('Entre un score valide pour les deux joueurs.'); return; }
@@ -1558,6 +1685,7 @@ function renderAllBetsAdmin(){
 
 function renderAdmin(){
   renderAllBetsAdmin();
+  refreshSeedBetTargets();
 
   // Liste des spectateurs connectés
   const specs = state.spectators || [];
