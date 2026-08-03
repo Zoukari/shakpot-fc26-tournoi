@@ -748,8 +748,42 @@ function generateBracket(){
     rounds.push({name: ROUND_NAMES[r+1], matches: ms});
   }
   state.bracket = {rounds};
+  ensureThirdPlace();
   propagate();
   saveBracket();
+}
+
+function ensureThirdPlace(){
+  if(!state.bracket) return;
+  var rs = state.bracket.rounds;
+  if(!rs || rs.length < 5) return;
+  if(rs.length >= 6) return;
+  rs.push({name:'Petite finale', matches:[{
+    id:'P3-0', round:5, thirdPlace:true,
+    p1:null, p2:null, isBye:false, winnerId:null,
+    status:'waiting', score1:null, score2:null
+  }]});
+}
+
+function fillThirdPlace(){
+  if(!state.bracket) return;
+  var rs = state.bracket.rounds;
+  if(!rs || rs.length < 6) return;
+  var demis = rs[3].matches;
+  var m = rs[5].matches[0];
+  if(!m) return;
+  m.p1 = loserPlayer(demis[0]);
+  m.p2 = loserPlayer(demis[1]);
+  if(m.status !== 'done'){
+    m.status = (m.p1 && m.p2) ? 'pending' : 'waiting';
+  }
+}
+
+function loserPlayer(m){
+  if(!m || !m.winnerId || m.isBye) return null;
+  if(m.p1 && m.p1.id !== m.winnerId) return m.p1;
+  if(m.p2 && m.p2.id !== m.winnerId) return m.p2;
+  return null;
 }
 
 function winnerPlayer(m){
@@ -761,8 +795,10 @@ function winnerPlayer(m){
 
 function propagate(){
   if(!state.bracket) return;
+  ensureThirdPlace();
   const rounds = state.bracket.rounds;
-  for(let r=1;r<rounds.length;r++){
+  const lastKO = Math.min(4, rounds.length - 1); // 4 = finale
+  for(let r=1;r<=lastKO;r++){
     const prev = rounds[r-1].matches;
     rounds[r].matches.forEach((m,i)=>{
       const m1 = prev[2*i], m2 = prev[2*i+1];
@@ -771,6 +807,7 @@ function propagate(){
       if(m.status==='waiting' && m.p1 && m.p2) m.status='pending';
     });
   }
+  fillThirdPlace();
 }
 
 function findMatch(matchId){
@@ -1185,12 +1222,15 @@ function renderBracket(){
     return;
   }
   empty.classList.add('hidden');
-  const rounds = state.bracket.rounds; // [R0, R1, R2, R3, Finale]
+  ensureThirdPlace(); fillThirdPlace();
+  const rounds = state.bracket.rounds; // [R0, R1, R2, R3, Finale, Petite finale]
+  const thirdM = (rounds.length > 5 && rounds[5].matches[0]) ? rounds[5].matches[0] : null;
 
   // Colonnes gauche (R0->R3), centre (finale), droite miroir (R3->R0)
   const cols = [];
   for(let r=0;r<4;r++) cols.push({ matches: leftHalf(rounds[r].matches), name: rounds[r].name, side:'L' });
-  cols.push({ matches: rounds[4].matches, name: '🏆 ' + rounds[4].name, side:'C', isFinal:true });
+  cols.push({ matches: thirdM ? [rounds[4].matches[0], thirdM] : rounds[4].matches,
+              name: '🏆 ' + rounds[4].name, side:'C', isFinal:true });
   for(let r=3;r>=0;r--) cols.push({ matches: rightHalf(rounds[r].matches), name: rounds[r].name, side:'R' });
 
   const nCols = cols.length;
@@ -1227,7 +1267,10 @@ function renderBracket(){
   // Associer chaque colonne d'affichage à son tableau de centres
   const yCenters = [];
   cols.forEach((col)=>{
-    if(col.side==='C'){ yCenters.push([finalCenter]); return; }
+    if(col.side==='C'){
+      yCenters.push(thirdM ? [finalCenter - CARD_SLOT*0.8, finalCenter + CARD_SLOT*0.8] : [finalCenter]);
+      return;
+    }
     // retrouver l'index de round d'après le nom
     const rIdx = rounds.findIndex(rd=>rd.name===col.name.replace('🏆 ',''));
     if(col.side==='L') yCenters.push(leftCenters[rIdx]);
@@ -1247,8 +1290,10 @@ function renderBracket(){
     html += `<div class="chip muted" style="position:absolute; left:${x}px; top:0; width:${COL_W}px; text-align:center; z-index:2;">${col.name.toUpperCase()}</div>`;
     col.matches.forEach((m, i)=>{
       const yc = yCenters[ci][i];
+      const isThird = !!m.thirdPlace;
+      const label = isThird ? `<div class="chip" style="text-align:center; margin-bottom:5px; color:#CD7F32; font-weight:800; letter-spacing:0.5px;">🥉 3ÈME PLACE</div>` : '';
       html += `<div style="position:absolute; left:${x}px; top:${yc}px; width:${COL_W}px; transform:translateY(-50%); z-index:2;">
-        ${matchCard(m, {allowBet:true, isFinal:!!col.isFinal})}
+        ${label}${matchCard(m, {allowBet:true, isFinal:!!col.isFinal && !isThird})}
       </div>`;
     });
   });
@@ -1360,8 +1405,16 @@ function drawBracketConnectors(){
   const segR = segSingle(ciDemiR, 0, ciF, 0, true);
   if(finalM.status==='pending'){ dActive += segL + segR; } else { dNormal += segL + segR; }
 
+  // Demi-finales → Petite finale (perdants), en pointillés
+  let dThird = '';
+  if(yCenters[4] && yCenters[4].length > 1){
+    dThird += segSingle(ciDemiL, 0, 4, 1, false);
+    dThird += segSingle(ciDemiR, 0, 4, 1, true);
+  }
+
   svg.innerHTML = `
     <path d="${dNormal}" fill="none" stroke="#3A4260" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="${dThird}" fill="none" stroke="#7A6A4A" stroke-width="2" stroke-dasharray="6 5" stroke-linecap="round" stroke-linejoin="round"/>
     <path d="${dActive}" fill="none" stroke="var(--red2, #FF4757)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="connector-live"/>
   `;
 }
