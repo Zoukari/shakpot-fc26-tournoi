@@ -466,6 +466,15 @@
     </div>
 
     <div class="card" style="padding:16px; margin-bottom:16px;">
+      <div class="row between" style="margin-bottom:8px;">
+        <div style="font-weight:600; font-size:14px;">Spectateurs connectés</div>
+        <div class="chip gold" id="spectatorsCount">0</div>
+      </div>
+      <p class="small muted" style="margin-top:0;">Chaque personne qui s'est connectée via le portail d'entrée (nom + numéro).</p>
+      <div id="spectatorsList" class="col gap-xs"></div>
+    </div>
+
+    <div class="card" style="padding:16px; margin-bottom:16px;">
       <div style="font-weight:600; font-size:14px; margin-bottom:8px;">Accès organisateurs</div>
       <p class="small muted" style="margin-top:0;">Les numéros ci-dessous voient apparaître le bouton "Espace organisateurs" (le code PIN reste le même pour tout le monde).</p>
       <div id="adminPhonesList" class="col gap-xs" style="margin-bottom:10px;"></div>
@@ -533,7 +542,7 @@ var sb = window.sb || (window.sb = window.supabase.createClient(SUPABASE_URL, SU
 var TOURNAMENT_DATE = new Date("2026-08-07T19:00:00+03:00");
 var ROUND_NAMES = ["Round 1","Huitièmes de finale","Quarts de finale","Demi-finales","Finale"];
 
-var state = { players: [], bracket: null, adminPhones: ["77743322"] };
+var state = { players: [], bracket: null, adminPhones: ["77743322"], spectators: [] };
 var bets = {}; // { matchId: [{nom, tel, side, ts}] }
 var spectator = null;
 var myPlayerId = null;
@@ -552,12 +561,14 @@ async function refreshPlayers(){
 
 async function refreshAll(){
   try{
-    const [{data: players}, {data: stateRows}, {data: betRows}] = await Promise.all([
+    const [{data: players}, {data: stateRows}, {data: betRows}, {data: specRows}] = await Promise.all([
       sb.from('players').select('*').order('created_at'),
       sb.from('tournament_state').select('*').eq('id',1),
-      sb.from('bets').select('*').order('created_at', {ascending:false})
+      sb.from('bets').select('*').order('created_at', {ascending:false}),
+      sb.from('spectators').select('*').order('created_at', {ascending:false})
     ]);
     state.players = players || [];
+    state.spectators = specRows || [];
     state.bracket = (stateRows && stateRows[0] && stateRows[0].bracket) || null;
     state.adminPhones = (stateRows && stateRows[0] && stateRows[0].admins) || ["77743322"];
     var newViewerBase = stateRows && stateRows[0] ? stateRows[0].viewer_base : null;
@@ -600,11 +611,31 @@ function enterApp(){
   renderAll();
 }
 
-function enterSiteSpectator(){
+async function enterSiteSpectator(){
   const nom = document.getElementById('gateNom').value.trim();
   const tel = document.getElementById('gateTel').value.trim();
-  if(!nom || !tel){ document.getElementById('gateError').classList.remove('hidden'); return; }
-  spectator = {nom, tel};
+  const err = document.getElementById('gateError');
+  if(!nom || !tel){ err.textContent = 'Merci de renseigner ton prénom et ton numéro.'; err.classList.remove('hidden'); return; }
+  const normT = normTel(tel);
+
+  // Vérifier si ce numéro est déjà connu
+  try {
+    const {data: existing} = await sb.from('spectators').select('nom').eq('tel', normT).maybeSingle();
+    if(existing){
+      // Numéro déjà enregistré — on vérifie que le nom correspond (insensible à la casse)
+      if(existing.nom.toLowerCase() !== nom.toLowerCase()){
+        err.textContent = `Ce numéro est déjà associé au nom "${existing.nom}". Merci d'utiliser le bon prénom.`;
+        err.classList.remove('hidden');
+        return;
+      }
+    } else {
+      // Nouveau numéro — on l'enregistre
+      await sb.from('spectators').insert({tel: normT, nom});
+    }
+  } catch(e){ /* Si la table n'est pas encore dispo, on laisse passer */ }
+
+  err.classList.add('hidden');
+  spectator = {nom, tel: normT};
   mode = 'spectator';
   myPlayerId = null;
   enterApp();
@@ -915,8 +946,8 @@ async function seedSpectators(){
 }
 
 async function clearSeedPlayers(){
-  if(!confirm("Effacer les joueurs de test uniquement ? Comme le tirage a été fait avec eux, l'arbre et les paris seront aussi réinitialisés (les vraies inscriptions ne sont pas touchées).")) return;
-  await sb.from('bets').delete().neq('match_id','');
+  if(!confirm("Effacer les joueurs de test uniquement ? L'arbre sera aussi réinitialisé. Les vraies inscriptions et paris réels ne sont pas touchés.")) return;
+  await sb.from('bets').delete().eq('is_seed', true);
   await sb.from('players').delete().like('id','p_seed_%');
   state.bracket = null;
   await saveBracket();
@@ -1446,6 +1477,20 @@ function renderAllBetsAdmin(){
 
 function renderAdmin(){
   renderAllBetsAdmin();
+
+  // Liste des spectateurs connectés
+  const specs = state.spectators || [];
+  const specCount = document.getElementById('spectatorsCount');
+  const specList = document.getElementById('spectatorsList');
+  if(specCount) specCount.textContent = specs.length;
+  if(specList){
+    specList.innerHTML = specs.length ? specs.map(s=>`
+      <div class="row between small" style="border-bottom:1px solid var(--line); padding:5px 0;">
+        <span><b>${s.nom}</b></span>
+        <span class="tiny muted font-mono">${s.tel}</span>
+      </div>`).join('') : `<div class="tiny muted">Aucun spectateur connecté pour l'instant.</div>`;
+  }
+
   document.getElementById('playerCount').textContent = `${state.players.length} / 24`;
   const listWrap = document.getElementById('playerListWrap');
   if(state.players.length){
@@ -1564,6 +1609,7 @@ function setupRealtime(){
     .on('postgres_changes', {event:'*', schema:'public', table:'players'}, refreshAll)
     .on('postgres_changes', {event:'*', schema:'public', table:'tournament_state'}, refreshAll)
     .on('postgres_changes', {event:'*', schema:'public', table:'bets'}, refreshAll)
+    .on('postgres_changes', {event:'*', schema:'public', table:'spectators'}, refreshAll)
     .subscribe();
 }
 
