@@ -342,7 +342,7 @@
       <div id="bracketEmpty" class="hidden empty-state">
         <div class="empty-state-icon">🏆</div>
         <div class="empty-state-title">L'arbre arrive bientôt</div>
-        <div class="empty-state-text">Les 24 joueurs sont en cours d'inscription chez l'organisateur. Reviens dès que le tirage est lancé pour voir qui affronte qui.</div>
+        <div class="empty-state-text">Les joueurs sont en cours d'inscription chez l'organisateur. Reviens dès que le tirage est lancé pour voir qui affronte qui.</div>
       </div>
       <div id="bracketWrap" style="overflow:auto; -webkit-overflow-scrolling:touch; padding-bottom:16px;">
         <!-- bracketScale applique le zoom : tout ce qui est dans ce div (cases + SVG) est zoomé ensemble -->
@@ -448,7 +448,7 @@
     <div class="card" style="padding:16px; margin-bottom:16px;">
       <div class="row between" style="margin-bottom:12px;">
         <div style="font-weight:600; font-size:14px;">Inscription joueurs</div>
-        <div class="chip gold" id="playerCount">0 / 24</div>
+        <div class="chip gold" id="playerCount">0 / 32</div>
       </div>
       <div class="row gap-sm" style="margin-bottom:8px;">
         <input id="pNom" placeholder="Nom" class="input input-sm">
@@ -519,7 +519,7 @@
       <div style="font-weight:600; font-size:14px; margin-bottom:8px;">Outils de test (seeders)</div>
       <p class="small muted" style="margin-top:0;">Génère de faux joueurs / paris / spectateurs pour tester l'arbre, le classement et les paris. Les boutons "Effacer" ne touchent que les données de test, jamais les vraies inscriptions.</p>
       <div class="row gap-sm" style="margin-bottom:8px;">
-        <input id="seedPlayersN" type="number" min="1" max="24" value="24" class="input input-sm" style="max-width:70px;">
+        <input id="seedPlayersN" type="number" min="1" max="32" value="32" class="input input-sm" style="max-width:70px;">
         <button onclick="seedPlayers()" class="btn btn-sm g1">Générer joueurs</button>
         <button onclick="clearSeedPlayers()" class="btn btn-sm btn-danger">Effacer</button>
       </div>
@@ -896,7 +896,7 @@ async function addPlayer(){
   const tel = document.getElementById('pTel').value.trim();
   const err = document.getElementById('playerError');
   if(!nom || !prenom || !age || !club || !tel){ err.textContent="Remplis tous les champs (le numéro est obligatoire)."; err.classList.remove('hidden'); return; }
-  if(state.players.length>=24){ err.textContent="24 joueurs déjà inscrits."; err.classList.remove('hidden'); return; }
+  if(state.players.length>=32){ err.textContent="32 joueurs déjà inscrits (maximum)."; err.classList.remove('hidden'); return; }
   err.classList.add('hidden');
   const player = {id:'p_'+Date.now()+'_'+Math.floor(Math.random()*1000), nom, prenom, age: parseInt(age), club, tel, pin: randomPin()};
   const {error} = await sb.from('players').insert(player);
@@ -907,7 +907,7 @@ async function addPlayer(){
   document.getElementById('pClub').value='';
   document.getElementById('pTel').value='';
   await refreshAll();
-  if(state.players.length===24 && !state.bracket){ generateBracket(); }
+  if(state.players.length===32 && !state.bracket){ generateBracket(); }
   renderAdmin();
 }
 
@@ -943,9 +943,9 @@ function randomFakeTel(){
 
 async function seedPlayers(){
   var n = parseInt(document.getElementById('seedPlayersN').value) || 0;
-  var room = 24 - state.players.length;
+  var room = 32 - state.players.length;
   n = Math.max(0, Math.min(n, room));
-  if(n===0){ alert('Déjà 24 joueurs, ou nombre invalide.'); return; }
+  if(n===0){ alert('Déjà 32 joueurs (maximum), ou nombre invalide.'); return; }
   var rows = [];
   for(var i=0;i<n;i++){
     rows.push({
@@ -958,13 +958,13 @@ async function seedPlayers(){
   const {error} = await sb.from('players').insert(rows);
   if(error){ alert("Erreur seeder joueurs : "+error.message); }
   await refreshAll();
-  if(state.players.length===24 && !state.bracket){ generateBracket(); await refreshAll(); }
+  if(state.players.length===32 && !state.bracket){ generateBracket(); await refreshAll(); }
   renderAdmin();
 }
 
 async function seedBettors(){
   var n = parseInt(document.getElementById('seedBettorsN').value) || 0;
-  if(!state.bracket){ alert('Génère le tirage (24 joueurs) avant de générer des parieurs.'); return; }
+  if(!state.bracket){ alert('Génère le tirage avant de générer des parieurs.'); return; }
   var pendingMatches = [];
   state.bracket.rounds.forEach(round=>{
     round.matches.forEach(m=>{ if(m.status==='pending' && m.p1 && m.p2) pendingMatches.push(m); });
@@ -1572,7 +1572,7 @@ function renderAdmin(){
       </div>`).join('') : `<div class="tiny muted">Aucun spectateur connecté pour l'instant.</div>`;
   }
 
-  document.getElementById('playerCount').textContent = `${state.players.length} / 24`;
+  document.getElementById('playerCount').textContent = `${state.players.length} / 32`;
   const listWrap = document.getElementById('playerListWrap');
   if(state.players.length){
     listWrap.innerHTML = `<div class="chip muted" style="margin-bottom:8px;">JOUEURS INSCRITS</div>
