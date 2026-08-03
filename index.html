@@ -317,7 +317,7 @@
     </div>
   </header>
 
-  <nav class="container" style="padding:0 16px;">
+  <nav class="container" style="padding:8px 16px; position:sticky; top:0; z-index:20; background:var(--bg);">
     <div class="segmented">
       <button onclick="setTab('bracket')" id="navBracket" class="seg-btn active">Tableau</button>
       <button onclick="setTab('prochains')" id="navProchains" class="seg-btn">Prochains</button>
@@ -595,6 +595,8 @@ function enterApp(){
   const who = document.getElementById('whoAmI');
   who.textContent = mode==='player' ? `Joueur · ${spectator.nom}` : `Spectateur · ${spectator.nom}`;
   refreshAdminButtonVisibility();
+  var zf = document.getElementById('bracketZoomFab');
+  if(zf) zf.classList.remove('hidden');
   renderAll();
 }
 
@@ -1612,8 +1614,6 @@ function initIntro(){
   tickViewers();
   await refreshPlayers();
   await refreshAll();
-  var zf = document.getElementById('bracketZoomFab');
-  if(zf) zf.classList.remove('hidden');
   setupRealtime();
 })();
 </script>
