@@ -1038,7 +1038,7 @@ async function seedPlayers(){
   const {error} = await sb.from('players').insert(rows);
   if(error){ alert("Erreur seeder joueurs : "+error.message); }
   await refreshAll();
-  if(state.players.length===32 && !state.bracket){ await generateBracket(); await refreshAll(); }
+  if(state.players.length>=2 && !state.bracket){ await generateBracket(); await refreshAll(); }
   renderAdmin();
 }
 
