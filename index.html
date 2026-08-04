@@ -526,7 +526,7 @@
       <div style="font-weight:600; font-size:14px; margin-bottom:10px; margin-top:6px;">⚡ Limites de paris</div>
       <div class="row gap-sm" style="margin-bottom:8px; align-items:center; flex-wrap:wrap;">
         <span class="tiny muted" style="min-width:100px;">Global (tous)</span>
-        <input id="adminGlobalLimit" type="number" min="0" max="50" value="${globalBetLimit !== null ? globalBetLimit : DEFAULT_BET_LIMIT}" class="input input-sm" style="max-width:70px;">
+        <input id="adminGlobalLimit" type="number" min="0" max="50" value="5" class="input input-sm" style="max-width:70px;">
         <button onclick="adminSetGlobalLimit()" class="btn btn-sm g1">Appliquer à tous</button>
         <button onclick="adminSetGlobalLimit('spectators')" class="btn btn-sm g1">Spectateurs seulement</button>
         <button onclick="adminSetGlobalLimit('players')" class="btn btn-sm g1">Joueurs seulement</button>
@@ -757,7 +757,11 @@ function generateBracket(){
   const pool = shuffle(state.players);
   const n = pool.length;
   const matchIdx = shuffle([...Array(16).keys()]);
-  const byeMatchIdx = new Set(matchIdx.slice(0, Math.max(0, n - Math.min(n,16))));
+  // 16 slots au 1er tour. m matchs (2 joueurs) + b byes (1 joueur) = n joueurs.
+  // n > 16 : on remplit les 16 slots  -> b = 32 - n, m = n - 16
+  // n <= 16 : on fait des vrais matchs -> b = n % 2 (le joueur impair passe direct)
+  const nByes = n > 16 ? (32 - n) : (n % 2);
+  const byeMatchIdx = new Set(matchIdx.slice(0, nByes));
   const round0 = [];
   const p = [...pool];
   for(let i=0;i<16;i++){
@@ -1267,6 +1271,7 @@ function maskPhone(tel){
 }
 
 function crowdPrediction(matchId, p1, p2){
+  if(!p1 || !p2) return ''; // match vide / bye : pas de jauge
   const list = bets[matchId] || [];
   let win1=0, win2=0, draws=0;
   const scoreCounts = {};
@@ -1729,11 +1734,18 @@ function renderAllBetsAdmin(){
 
 // ---- admin : gestion limites de paris ----
 async function saveBetLimits(){
-  await sb.from('tournament_state').upsert({
-    id:1,
-    bet_limits: JSON.stringify(betLimitsMap),
-    global_bet_limit: globalBetLimit
-  });
+  try{
+    const {error} = await sb.from('tournament_state').upsert({
+      id:1,
+      bet_limits: JSON.stringify(betLimitsMap),
+      global_bet_limit: globalBetLimit
+    });
+    if(error) throw error;
+  }catch(e){
+    console.warn('Colonnes bet_limits absentes, sauvegarde locale seulement', e);
+    try{ localStorage.setItem('betLimits', JSON.stringify({map:betLimitsMap, global:globalBetLimit})); }catch(e2){}
+    alert("Les limites sont appliquées, mais la sauvegarde en base a échoué (colonnes 'bet_limits' / 'global_bet_limit' manquantes dans tournament_state).");
+  }
 }
 
 async function adminSetGlobalLimit(scope){
@@ -1765,6 +1777,10 @@ async function adminSetUserLimit(tel, delta, abs){
 }
 
 function renderAdminBetLimits(){
+  var gEl = document.getElementById('adminGlobalLimit');
+  if(gEl && document.activeElement !== gEl){
+    gEl.value = (globalBetLimit !== null ? globalBetLimit : DEFAULT_BET_LIMIT);
+  }
   var el = document.getElementById('adminUserLimitsList');
   if(!el) return;
   var playerTels = new Set((state.players||[]).map(p=>String(p.tel)));
@@ -1790,10 +1806,10 @@ function renderAdminBetLimits(){
       + '<span class="tiny g1" style="min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">'+u.label+'</span>'
       + '<span class="tiny muted" style="white-space:nowrap;">'+u.used+'/'+u.lim+' (reste '+left+')</span>'
       + '<div class="row gap-xs">'
-      + '<button class="btn btn-sm" style="padding:2px 7px; font-size:11px;" onclick="adminSetUserLimit(''+u.tel+'', -1)">−</button>'
+      + '<button class="btn btn-sm" style="padding:2px 7px; font-size:11px;" onclick="adminSetUserLimit(\'' + u.tel + '\', -1)">−</button>'
       + '<input type="number" min="0" max="99" value="'+u.lim+'" style="width:48px; font-size:12px; text-align:center; background:#1a1f2e; border:1px solid var(--line); color:var(--ink); border-radius:6px; padding:2px 4px;"'
-      + ' onchange="adminSetUserLimit(''+u.tel+'', 0, parseInt(this.value))">'
-      + '<button class="btn btn-sm g1" style="padding:2px 7px; font-size:11px;" onclick="adminSetUserLimit(''+u.tel+'', 1)">+</button>'
+      + ' onchange="adminSetUserLimit(\'' + u.tel + '\', 0, parseInt(this.value))">'
+      + '<button class="btn btn-sm g1" style="padding:2px 7px; font-size:11px;" onclick="adminSetUserLimit(\'' + u.tel + '\', 1)">+</button>'
       + '</div>'
       + '</div>';
   }).join('');
