@@ -336,6 +336,12 @@
     </div>
   </nav>
 
+  <div class="container" id="betLimitBanner" style="padding:6px 16px 0; display:none;">
+    <div class="glass-panel row center gap-md" style="padding:8px 14px; border-radius:12px;">
+      <span class="tiny muted">🎲 Paris restants</span>
+      <span id="betLimitText" class="chip gold" style="font-weight:700; font-size:12px;"></span>
+    </div>
+  </div>
   <main class="container" style="padding:20px 16px;">
 
     <section id="tab-bracket">
@@ -517,6 +523,16 @@
     </div>
 
     <div class="card" style="padding:16px; margin-bottom:24px;">
+      <div style="font-weight:600; font-size:14px; margin-bottom:10px; margin-top:6px;">⚡ Limites de paris</div>
+      <div class="row gap-sm" style="margin-bottom:8px; align-items:center; flex-wrap:wrap;">
+        <span class="tiny muted" style="min-width:100px;">Global (tous)</span>
+        <input id="adminGlobalLimit" type="number" min="0" max="50" value="${globalBetLimit !== null ? globalBetLimit : DEFAULT_BET_LIMIT}" class="input input-sm" style="max-width:70px;">
+        <button onclick="adminSetGlobalLimit()" class="btn btn-sm g1">Appliquer à tous</button>
+        <button onclick="adminSetGlobalLimit('spectators')" class="btn btn-sm g1">Spectateurs seulement</button>
+        <button onclick="adminSetGlobalLimit('players')" class="btn btn-sm g1">Joueurs seulement</button>
+      </div>
+      <div id="adminUserLimitsList" style="max-height:220px; overflow-y:auto; margin-bottom:10px;"></div>
+
       <div style="font-weight:600; font-size:14px; margin-bottom:8px;">Outils de test (seeders)</div>
       <p class="small muted" style="margin-top:0;">Génère de faux joueurs / paris / spectateurs pour tester l'arbre, le classement et les paris. Les boutons "Effacer" ne touchent que les données de test, jamais les vraies inscriptions.</p>
       <div class="row gap-sm" style="margin-bottom:8px;">
@@ -599,6 +615,12 @@ async function refreshAll(){
     state.bracket = (stateRows && stateRows[0] && stateRows[0].bracket) || null;
     state.adminPhones = (stateRows && stateRows[0] && stateRows[0].admins) || ["77743322"];
     var newViewerBase = stateRows && stateRows[0] ? stateRows[0].viewer_base : null;
+    if(stateRows && stateRows[0] && stateRows[0].bet_limits){
+      try{ betLimitsMap = JSON.parse(stateRows[0].bet_limits); } catch(e){ betLimitsMap = {}; }
+    }
+    if(stateRows && stateRows[0] && stateRows[0].global_bet_limit != null){
+      globalBetLimit = stateRows[0].global_bet_limit;
+    } else { globalBetLimit = null; }
     if(newViewerBase !== state.viewerBase){
       state.viewerBase = newViewerBase || null;
       if(newViewerBase) viewerCount = newViewerBase;
@@ -923,6 +945,15 @@ async function addPlayer(){
   document.getElementById('pTel').value='';
   await refreshAll();
   if(state.players.length===32 && !state.bracket){ generateBracket(); }
+  // banniere paris restants
+  var banner = document.getElementById('betLimitBanner');
+  var bannerTxt = document.getElementById('betLimitText');
+  if(banner && bannerTxt && spectator){
+    var left = myBetsLeft();
+    bannerTxt.textContent = left + ' / ' + limitFor(spectator.tel);
+    banner.style.display = '';
+    bannerTxt.style.color = left === 0 ? 'var(--red)' : 'var(--gold)';
+  } else if(banner){ banner.style.display = 'none'; }
   renderAdmin();
 }
 
@@ -1147,7 +1178,14 @@ async function submitScore(matchId){
 
 // ---------- betting (public) ----------
 // Nombre maximum de paris qu'un même spectateur peut placer sur tout le tournoi.
-var MAX_BETS_PER_SPECTATOR = 5;
+var DEFAULT_BET_LIMIT = 5;
+var betLimitsMap = {}; // tel -> limite (override individuel)
+var globalBetLimit = null; // override global si non null
+
+function limitFor(tel){
+  if(betLimitsMap[tel] !== undefined) return betLimitsMap[tel];
+  return globalBetLimit !== null ? globalBetLimit : DEFAULT_BET_LIMIT;
+}
 
 function myBetsCount(){
   if(!spectator) return 0;
@@ -1157,7 +1195,7 @@ function myBetsCount(){
   });
   return n;
 }
-function myBetsLeft(){ return Math.max(0, MAX_BETS_PER_SPECTATOR - myBetsCount()); }
+function myBetsLeft(){ if(!spectator) return 0; return Math.max(0, limitFor(spectator.tel) - myBetsCount()); }
 
 var betModalMatchId = null;
 
@@ -1166,12 +1204,12 @@ function openBetModal(matchId){
   if(!m || !m.p1 || !m.p2) return;
   const already = (bets[matchId]||[]).some(b=>b.tel === (spectator && spectator.tel));
   if(!already && myBetsLeft() <= 0){
-    alert('Tu as déjà utilisé tes ' + MAX_BETS_PER_SPECTATOR + ' paris pour ce tournoi.');
+    alert('Tu as déjà utilisé tes ' + limitFor(spectator.tel) + ' paris pour ce tournoi.');
     return;
   }
   betModalMatchId = matchId;
   var leftEl = document.getElementById('betModalLeft');
-  if(leftEl) leftEl.textContent = 'Il te reste ' + myBetsLeft() + ' pari(s) sur ' + MAX_BETS_PER_SPECTATOR + '.';
+  if(leftEl) leftEl.textContent = 'Il te reste ' + myBetsLeft() + ' pari(s) sur ' + limitFor(spectator.tel) + '.';
   document.getElementById('betModalP1Name').textContent = m.p1.prenom + ' ' + m.p1.nom;
   document.getElementById('betModalP2Name').textContent = m.p2.prenom + ' ' + m.p2.nom;
   document.getElementById('betModalS1').value = '';
@@ -1188,7 +1226,7 @@ async function confirmBet(){
   const existing = (bets[matchId]||[]).find(b=>b.tel===spectator.tel);
   if(existing){ closeBetModal(); return; }
   if(myBetsLeft() <= 0){
-    alert('Tu as atteint la limite de ' + MAX_BETS_PER_SPECTATOR + ' paris pour ce tournoi.');
+    alert('Tu as atteint la limite de ' + limitFor(spectator.tel) + ' paris pour ce tournoi.');
     closeBetModal(); return;
   }
   const p1 = parseInt(document.getElementById('betModalS1').value);
@@ -1230,7 +1268,6 @@ function maskPhone(tel){
 
 function crowdPrediction(matchId, p1, p2){
   const list = bets[matchId] || [];
-  if(list.length < 2) return ''; // pas assez de paris pour un pronostic fiable
   let win1=0, win2=0, draws=0;
   const scoreCounts = {};
   list.forEach(b=>{
@@ -1251,9 +1288,15 @@ function crowdPrediction(matchId, p1, p2){
 
   const nullSegment = pctNull>0 ? `<div class="gauge-fill-null" style="width:${pctNull}%;"></div>` : '';
   const nullLabel = pctNull>0 ? `<span class="row center" style="flex:0 0 auto;">NULL <b style="color:#fff; margin-left:3px;">${pctNull}%</b></span>` : '';
+  const subtitle = total === 0
+    ? `📊 Aucun pari pour l'instant — sois le premier !`
+    : `📊 Pronostic public (${total} pari${total>1?'s':''})${topScore?' · score le + parié : '+topScore:''}`;
+
+  // si personne n'a parié : jauge 50/50
+  if(total === 0){ pct1 = 50; pctNull = 0; pct2 = 50; }
 
   return `<div style="margin-top:8px;">
-    <div class="tiny muted" style="margin-bottom:4px;">📊 Pronostic public (${total} paris) · score le plus parié : ${topScore}</div>
+    <div class="tiny muted" style="margin-bottom:4px;">${subtitle}</div>
     <div class="row between tiny" style="margin-bottom:3px;">
       <span>${p1.prenom} <b class="red">${pct1}%</b></span>
       ${nullLabel}
@@ -1683,9 +1726,83 @@ function renderAllBetsAdmin(){
   }).join('');
 }
 
+
+// ---- admin : gestion limites de paris ----
+async function saveBetLimits(){
+  await sb.from('tournament_state').upsert({
+    id:1,
+    bet_limits: JSON.stringify(betLimitsMap),
+    global_bet_limit: globalBetLimit
+  });
+}
+
+async function adminSetGlobalLimit(scope){
+  var val = parseInt(document.getElementById('adminGlobalLimit').value);
+  if(isNaN(val) || val < 0){ alert('Nombre invalide.'); return; }
+  if(!scope){
+    // tous
+    globalBetLimit = val;
+    betLimitsMap = {};
+  } else if(scope === 'spectators'){
+    var playerTels = new Set((state.players||[]).map(p=>String(p.tel)));
+    var specs = state.spectators||[];
+    specs.forEach(function(s){
+      if(!playerTels.has(String(s.tel))) betLimitsMap[s.tel] = val;
+    });
+  } else if(scope === 'players'){
+    (state.players||[]).forEach(function(p){ betLimitsMap[p.tel] = val; });
+  }
+  await saveBetLimits();
+  await refreshAll();
+}
+
+async function adminSetUserLimit(tel, delta, abs){
+  var cur = betLimitsMap[tel] !== undefined ? betLimitsMap[tel] : (globalBetLimit !== null ? globalBetLimit : DEFAULT_BET_LIMIT);
+  var next = abs !== undefined ? abs : Math.max(0, cur + delta);
+  betLimitsMap[tel] = next;
+  await saveBetLimits();
+  await refreshAll();
+}
+
+function renderAdminBetLimits(){
+  var el = document.getElementById('adminUserLimitsList');
+  if(!el) return;
+  var playerTels = new Set((state.players||[]).map(p=>String(p.tel)));
+  var allUsers = [];
+  // joueurs
+  (state.players||[]).forEach(function(p){
+    var lim = betLimitsMap[p.tel] !== undefined ? betLimitsMap[p.tel] : (globalBetLimit !== null ? globalBetLimit : DEFAULT_BET_LIMIT);
+    var used = Object.keys(bets).filter(function(mid){ return (bets[mid]||[]).some(function(b){ return String(b.tel)===String(p.tel); }); }).length;
+    allUsers.push({tel:p.tel, label:'🎮 '+p.prenom+' '+p.nom, lim:lim, used:used, isPlayer:true});
+  });
+  // spectateurs purs
+  (state.spectators||[]).forEach(function(s){
+    if(playerTels.has(String(s.tel))) return;
+    var lim = betLimitsMap[s.tel] !== undefined ? betLimitsMap[s.tel] : (globalBetLimit !== null ? globalBetLimit : DEFAULT_BET_LIMIT);
+    var used = Object.keys(bets).filter(function(mid){ return (bets[mid]||[]).some(function(b){ return String(b.tel)===String(s.tel); }); }).length;
+    allUsers.push({tel:s.tel, label:'👁 '+s.nom, lim:lim, used:used, isPlayer:false});
+  });
+  if(!allUsers.length){ el.innerHTML = '<div class="tiny muted">Aucun utilisateur connecté.</div>'; return; }
+  el.innerHTML = allUsers.map(function(u){
+    var left = Math.max(0, u.lim - u.used);
+    var bar = u.lim > 0 ? Math.round(100*u.used/u.lim) : 100;
+    return '<div class="row gap-sm" style="align-items:center; padding:5px 0; border-bottom:1px solid var(--line);">'
+      + '<span class="tiny g1" style="min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">'+u.label+'</span>'
+      + '<span class="tiny muted" style="white-space:nowrap;">'+u.used+'/'+u.lim+' (reste '+left+')</span>'
+      + '<div class="row gap-xs">'
+      + '<button class="btn btn-sm" style="padding:2px 7px; font-size:11px;" onclick="adminSetUserLimit(''+u.tel+'', -1)">−</button>'
+      + '<input type="number" min="0" max="99" value="'+u.lim+'" style="width:48px; font-size:12px; text-align:center; background:#1a1f2e; border:1px solid var(--line); color:var(--ink); border-radius:6px; padding:2px 4px;"'
+      + ' onchange="adminSetUserLimit(''+u.tel+'', 0, parseInt(this.value))">'
+      + '<button class="btn btn-sm g1" style="padding:2px 7px; font-size:11px;" onclick="adminSetUserLimit(''+u.tel+'', 1)">+</button>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+
 function renderAdmin(){
   renderAllBetsAdmin();
   refreshSeedBetTargets();
+  renderAdminBetLimits();
 
   // Liste des spectateurs connectés
   const specs = state.spectators || [];
