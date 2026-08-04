@@ -772,12 +772,11 @@ async function generateBracket(){
   const pool = shuffle(state.players);
   const n = pool.length;
   const matchIdx = shuffle([...Array(16).keys()]);
-  // 16 slots. 2*matchs + 1*byes = n joueurs, matchs + byes <= 16
-  // n >= 16 : matchs = n-16, byes = 32-n  (ex: 24j -> 8 matchs + 8 byes)
-  // n < 16  : matchs = floor(n/2), byes = n%2
-  const nMatchs = n >= 16 ? n - 16 : Math.floor(n / 2);
-  const nByes   = n >= 16 ? 32 - n : n % 2;
-  const byeMatchIdx = new Set(matchIdx.slice(0, nByes));
+  // Prochain puissance de 2 >= n : les byes sont les joueurs qui passent sans jouer
+  let nextPow2 = 1; while(nextPow2 < n) nextPow2 *= 2;
+  const nByes   = Math.min(nextPow2 - n, 16);   // joueurs qui passent direct
+  const nMatchs = Math.min((n - nByes) / 2, 16); // vrais matchs (n - byes jouent 2 par 2)
+  const byeMatchIdx   = new Set(matchIdx.slice(0, nByes));
   const matchMatchIdx = new Set(matchIdx.slice(nByes, nByes + nMatchs));
   const round0 = [];
   const p = [...pool];
