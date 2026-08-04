@@ -612,7 +612,9 @@ async function refreshAll(){
     ]);
     state.players = players || [];
     state.spectators = specRows || [];
-    state.bracket = (stateRows && stateRows[0] && stateRows[0].bracket) || null;
+    // Ne jamais écraser un bracket qu'on vient de générer (évite la race condition)
+    const dbBracket = (stateRows && stateRows[0] && stateRows[0].bracket) || null;
+    if(!state.bracket || dbBracket) state.bracket = dbBracket;
     state.adminPhones = (stateRows && stateRows[0] && stateRows[0].admins) || ["77743322"];
     var newViewerBase = stateRows && stateRows[0] ? stateRows[0].viewer_base : null;
     if(stateRows && stateRows[0] && stateRows[0].bet_limits){
@@ -770,25 +772,27 @@ async function generateBracket(){
   const pool = shuffle(state.players);
   const n = pool.length;
   const matchIdx = shuffle([...Array(16).keys()]);
-  // 16 slots au 1er tour. m matchs (2 joueurs) + b byes (1 joueur) = n joueurs.
-  // n > 16 : on remplit les 16 slots  -> b = 32 - n, m = n - 16
-  // n <= 16 : on fait des vrais matchs -> b = n % 2 (le joueur impair passe direct)
-  const nByes = n > 16 ? (32 - n) : (n % 2);
+  // 16 slots. 2*matchs + 1*byes = n joueurs, matchs + byes <= 16
+  // n >= 16 : matchs = n-16, byes = 32-n  (ex: 24j -> 8 matchs + 8 byes)
+  // n < 16  : matchs = floor(n/2), byes = n%2
+  const nMatchs = n >= 16 ? n - 16 : Math.floor(n / 2);
+  const nByes   = n >= 16 ? 32 - n : n % 2;
   const byeMatchIdx = new Set(matchIdx.slice(0, nByes));
+  const matchMatchIdx = new Set(matchIdx.slice(nByes, nByes + nMatchs));
   const round0 = [];
   const p = [...pool];
   for(let i=0;i<16;i++){
-    if(byeMatchIdx.has(i) && p.length>0){
+    if(byeMatchIdx.has(i)){
+      // bye : 1 joueur passe directement au tour suivant
       const pl = p.pop();
       const slotFirst = Math.random()<0.5;
-      round0.push({id:`R0-${i}`, round:0, p1: slotFirst?pl:null, p2: slotFirst?null:pl, isBye:true, winnerId:pl.id, status:'bye', score1:null, score2:null});
-    } else if(p.length>=2){
+      round0.push({id:`R0-${i}`, round:0, p1:slotFirst?pl:null, p2:slotFirst?null:pl, isBye:true, winnerId:pl.id, status:'bye', score1:null, score2:null});
+    } else if(matchMatchIdx.has(i)){
+      // vrai match : 2 joueurs s'affrontent
       const a=p.pop(), b=p.pop();
       round0.push({id:`R0-${i}`, round:0, p1:a, p2:b, isBye:false, winnerId:null, status:'pending', score1:null, score2:null});
-    } else if(p.length===1){
-      const pl=p.pop();
-      round0.push({id:`R0-${i}`, round:0, p1:pl, p2:null, isBye:true, winnerId:pl.id, status:'bye', score1:null, score2:null});
     } else {
+      // slot vide (pas assez de joueurs pour remplir le tableau)
       round0.push({id:`R0-${i}`, round:0, p1:null, p2:null, isBye:true, winnerId:null, status:'empty', score1:null, score2:null});
     }
   }
