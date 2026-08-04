@@ -616,7 +616,8 @@ async function refreshAll(){
     state.adminPhones = (stateRows && stateRows[0] && stateRows[0].admins) || ["77743322"];
     var newViewerBase = stateRows && stateRows[0] ? stateRows[0].viewer_base : null;
     if(stateRows && stateRows[0] && stateRows[0].bet_limits){
-      try{ betLimitsMap = JSON.parse(stateRows[0].bet_limits); } catch(e){ betLimitsMap = {}; }
+      var bl = stateRows[0].bet_limits;
+      betLimitsMap = (typeof bl === 'string') ? (function(){ try{ return JSON.parse(bl); }catch(e){ return {}; } })() : (bl || {});
     }
     if(stateRows && stateRows[0] && stateRows[0].global_bet_limit != null){
       globalBetLimit = stateRows[0].global_bet_limit;
@@ -638,8 +639,20 @@ async function refreshAll(){
 
 async function saveBracket(){
   try{
-    await sb.from('tournament_state').upsert({id:1, bracket: state.bracket, updated_at: new Date().toISOString()});
-  }catch(e){ console.error('save bracket failed', e); }
+    const {error} = await sb.from('tournament_state')
+      .upsert({id:1, bracket: state.bracket, updated_at: new Date().toISOString()});
+    if(error){
+      console.error('save bracket failed', error);
+      alert("Le tirage n'a pas pu être enregistré : " + (error.message || error.code || 'erreur inconnue')
+            + "\nIl restera affiché mais sera perdu au rechargement.");
+      return false;
+    }
+    return true;
+  }catch(e){
+    console.error('save bracket failed', e);
+    alert("Le tirage n'a pas pu être enregistré : " + (e.message || e));
+    return false;
+  }
 }
 
 // ---------- gate ----------
@@ -1737,7 +1750,7 @@ async function saveBetLimits(){
   try{
     const {error} = await sb.from('tournament_state').upsert({
       id:1,
-      bet_limits: JSON.stringify(betLimitsMap),
+      bet_limits: betLimitsMap,
       global_bet_limit: globalBetLimit
     });
     if(error) throw error;
