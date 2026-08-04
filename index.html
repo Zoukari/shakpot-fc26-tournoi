@@ -752,7 +752,7 @@ function shuffle(arr){
   return a;
 }
 
-function generateBracket(){
+async function generateBracket(){
   if(state.players.length < 2) return;
   const pool = shuffle(state.players);
   const n = pool.length;
@@ -791,7 +791,7 @@ function generateBracket(){
   state.bracket = {rounds};
   ensureThirdPlace();
   propagate();
-  saveBracket();
+  await saveBracket();
 }
 
 function ensureThirdPlace(){
@@ -948,7 +948,7 @@ async function addPlayer(){
   document.getElementById('pClub').value='';
   document.getElementById('pTel').value='';
   await refreshAll();
-  if(state.players.length===32 && !state.bracket){ generateBracket(); }
+  if(state.players.length===32 && !state.bracket){ await generateBracket(); }
   // banniere paris restants
   var banner = document.getElementById('betLimitBanner');
   var bannerTxt = document.getElementById('betLimitText');
@@ -965,7 +965,7 @@ async function regenerateBracket(){
   if(state.players.length<2){ alert('Ajoute au moins 2 joueurs.'); return; }
   if(!confirm('Régénérer le tirage va effacer tous les résultats et paris en cours. Continuer ?')) return;
   await sb.from('bets').delete().neq('match_id','');
-  generateBracket();
+  await generateBracket();
   await refreshAll();
 }
 
@@ -1008,7 +1008,7 @@ async function seedPlayers(){
   const {error} = await sb.from('players').insert(rows);
   if(error){ alert("Erreur seeder joueurs : "+error.message); }
   await refreshAll();
-  if(state.players.length===32 && !state.bracket){ generateBracket(); await refreshAll(); }
+  if(state.players.length===32 && !state.bracket){ await generateBracket(); await refreshAll(); }
   renderAdmin();
 }
 
