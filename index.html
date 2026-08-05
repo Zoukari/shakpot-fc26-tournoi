@@ -141,6 +141,21 @@
   .sticky-top{position:sticky; top:0; z-index:30; background:rgba(10,12,18,0.95); backdrop-filter:blur(8px); border-bottom:1px solid var(--line);}
   .fullscreen-panel{position:fixed; inset:0; z-index:40; background:var(--bg); overflow-y:auto;}
   .page-watermark{position:fixed; inset:0; z-index:-1; pointer-events:none; overflow:hidden; opacity:0.10;}
+  /* Verrou "non payé" : contenu flou + non cliquable */
+  .paid-locked #tab-bracket, .paid-locked #tab-prochains, .paid-locked #tab-classement, .paid-locked #tab-mesparis{
+    filter: blur(7px) saturate(0.6); pointer-events:none; user-select:none; opacity:0.75;
+  }
+  #paidLockOverlay{
+    position:fixed; inset:0; z-index:60; display:none;
+    flex-direction:column; align-items:center; justify-content:center; text-align:center;
+    padding:32px 22px; background:rgba(8,13,15,0.82); backdrop-filter:blur(3px);
+  }
+  .paid-locked #paidLockOverlay{ display:flex; }
+  .paid-lock-card{
+    background:linear-gradient(135deg, rgba(255,45,138,0.16), rgba(255,45,138,0.06));
+    border:1.5px solid var(--red); border-radius:22px; padding:26px 22px; max-width:340px;
+    box-shadow:0 12px 40px rgba(255,45,138,0.25);
+  }
   .page-watermark img{position:absolute; object-fit:contain; transform:translate(-50%,-50%) rotate(-15deg);}
 
   /* ---- gate ---- */
@@ -298,6 +313,15 @@
 <!-- ============ APP ============ -->
 <div id="app" class="hidden">
   <div id="pageWatermark" class="page-watermark"></div>
+  <div id="paidLockOverlay">
+    <div class="paid-lock-card">
+      <div style="font-size:44px; margin-bottom:10px;">🔒</div>
+      <div class="font-display" style="font-size:22px; color:var(--red); margin-bottom:10px;">VOUS N'AVEZ PAS PAYÉ</div>
+      <p class="small" style="color:var(--ink); margin:0 0 8px;">Ton inscription n'est pas encore réglée. Tant que le paiement n'est pas validé par l'organisateur, tu ne peux pas voir le tableau ni parier.</p>
+      <p class="tiny muted" style="margin:0 0 16px;">Règle ton inscription auprès de l'organisateur, puis reconnecte-toi.</p>
+      <a id="paidLockWa" href="#" target="_blank" class="btn btn-primary" style="text-decoration:none; display:inline-block;">💬 Contacter l'organisateur</a>
+    </div>
+  </div>
 
   <header class="sticky-top">
     <div class="container row between" style="padding:14px 16px 0 16px;">
@@ -466,6 +490,10 @@
         <input id="pClub" list="clubList" placeholder="Club (EA FC)" class="input input-sm">
       </div>
       <input id="pTel" type="tel" placeholder="Numéro de téléphone du joueur" class="input input-sm" style="margin-bottom:8px;">
+      <label class="row gap-sm" style="align-items:center; margin-bottom:8px; cursor:pointer;">
+        <input id="pPaid" type="checkbox" style="width:18px; height:18px; accent-color:var(--gold);">
+        <span class="small">✅ Inscription payée</span>
+      </label>
       <datalist id="clubList">
         <option value="PSG"><option value="Real Madrid"><option value="Manchester City">
         <option value="Liverpool"><option value="Barcelone"><option value="Bayern Munich">
@@ -588,6 +616,7 @@ var ROUND_NAMES = ["Round 1","Huitièmes de finale","Quarts de finale","Demi-fin
 var state = { players: [], bracket: null, adminPhones: ["77743322"], spectators: [] };
 var bets = {}; // { matchId: [{nom, tel, side, ts}] }
 var spectator = null;
+var myPlayerPaid = true; // false = joueur connecté mais non payé => tout flou + rien cliquable
 var myPlayerId = null;
 var mode = null; // 'spectator' | 'player'
 var activeTab = 'bracket';
@@ -615,6 +644,12 @@ async function refreshAll(){
     // Ne jamais écraser un bracket qu'on vient de générer (évite la race condition)
     const dbBracket = (stateRows && stateRows[0] && stateRows[0].bracket) || null;
     if(!state.bracket || dbBracket) state.bracket = dbBracket;
+    // mettre à jour le statut de paiement du joueur connecté (si l'admin vient de valider)
+    if(mode==='player' && myPlayerId){
+      var me = (state.players||[]).find(function(p){ return p.id===myPlayerId; });
+      if(me){ myPlayerPaid = (me.paid === true); }
+    }
+    applyPaidLock();
     state.adminPhones = (stateRows && stateRows[0] && stateRows[0].admins) || ["77743322"];
     var newViewerBase = stateRows && stateRows[0] ? stateRows[0].viewer_base : null;
     if(stateRows && stateRows[0] && stateRows[0].bet_limits){
@@ -716,7 +751,9 @@ function enterSitePlayer(){
   spectator = {nom: `${player.prenom} ${player.nom}`, tel: player.tel};
   mode = 'player';
   myPlayerId = player.id;
+  myPlayerPaid = (player.paid === true);
   enterApp();
+  applyPaidLock();
 }
 
 // ---------- tabs ----------
@@ -900,10 +937,60 @@ var ADMIN_PIN = "2709";
 
 function normTel(t){ return (t||'').replace(/\s|-/g,''); }
 
+// Numéro WhatsApp au format international Djibouti (+253)
+function waNumber(tel){
+  var t = normTel(tel).replace(/^\+/,'');
+  if(t.indexOf('253')===0) return t;
+  return '253' + t; // numéro local djiboutien
+}
+
+// Verrou "non payé" : floute tout et affiche l'overlay rouge
+function applyPaidLock(){
+  var app = document.getElementById('app');
+  if(!app) return;
+  var locked = (mode==='player' && myPlayerPaid===false);
+  app.classList.toggle('paid-locked', locked);
+  if(locked){
+    var org = (state.adminPhones && state.adminPhones[0]) || '77743322';
+    var msg = encodeURIComponent("Bonjour, c'est " + (spectator ? spectator.nom : '') + ". Je veux régler mon inscription au tournoi FC26. 🎮");
+    var wa = document.getElementById('paidLockWa');
+    if(wa) wa.href = 'https://wa.me/' + waNumber(org) + '?text=' + msg;
+  }
+}
+
 function isRecognizedAdminPhone(tel){
   var list = state.adminPhones || [];
   var n = normTel(tel);
   return list.some(function(p){ return normTel(p) === n; });
+}
+
+
+// ---- statut paiement + WhatsApp (admin) ----
+async function togglePaid(pid){
+  const p = state.players.find(x=>x.id===pid);
+  if(!p) return;
+  const next = !(p.paid===true);
+  const {error} = await sb.from('players').update({paid: next}).eq('id', pid);
+  if(error){ alert("Erreur maj paiement : "+error.message); return; }
+  p.paid = next;
+  await refreshAll();
+  renderAdmin();
+}
+
+function waPlayer(pid, type){
+  const p = state.players.find(x=>x.id===pid);
+  if(!p || !p.tel){ alert("Ce joueur n'a pas de numéro enregistré."); return; }
+  const prenom = p.prenom || '';
+  let msg = '';
+  if(type==='match'){
+    msg = `Salut ${prenom} ! 🎮\n\nC'est bien ce soir le TOURNOI FC26 à Battleground Space, coup d'envoi 19h00. Ne tarde pas, viens un peu en avance pour ton premier match ! 🔥\n\nÀ tout à l'heure 💪`;
+  } else if(type==='paiement'){
+    msg = `Salut ${prenom} ! 🎮\n\nPetit rappel : ton inscription au TOURNOI FC26 n'est pas encore réglée. Pour valider ta place et pouvoir jouer ce soir, il faut régler l'inscription (1 500 FDJ, tacos + boisson inclus).\n\nPasse me voir ou envoie-moi un message. Merci ! 🙏`;
+  } else if(type==='parrainage'){
+    msg = `Salut ${prenom} ! 🎮\n\nBon plan : si tu ramènes des joueurs au TOURNOI FC26, tu gagnes 200 FDJ par personne inscrite grâce à toi ! 💰\n\nPlus tu ramènes de monde, plus tu gagnes. Parles-en autour de toi et dis-moi qui vient de ta part 🔥`;
+  }
+  const url = 'https://wa.me/' + waNumber(p.tel) + '?text=' + encodeURIComponent(msg);
+  window.open(url, '_blank');
 }
 
 function refreshAdminButtonVisibility(){
@@ -969,7 +1056,8 @@ async function addPlayer(){
   if(!nom || !prenom || !age || !club || !tel){ err.textContent="Remplis tous les champs (le numéro est obligatoire)."; err.classList.remove('hidden'); return; }
   if(state.players.length>=32){ err.textContent="32 joueurs déjà inscrits (maximum)."; err.classList.remove('hidden'); return; }
   err.classList.add('hidden');
-  const player = {id:'p_'+Date.now()+'_'+Math.floor(Math.random()*1000), nom, prenom, age: parseInt(age), club, tel, pin: randomPin()};
+  const paid = document.getElementById('pPaid').checked;
+  const player = {id:'p_'+Date.now()+'_'+Math.floor(Math.random()*1000), nom, prenom, age: parseInt(age), club, tel, pin: randomPin(), paid};
   const {error} = await sb.from('players').insert(player);
   if(error){ err.textContent="Erreur d'enregistrement : "+error.message; err.classList.remove('hidden'); return; }
   document.getElementById('pNom').value='';
@@ -977,6 +1065,7 @@ async function addPlayer(){
   document.getElementById('pAge').value='';
   document.getElementById('pClub').value='';
   document.getElementById('pTel').value='';
+  document.getElementById('pPaid').checked=false;
   await refreshAll();
   if(state.players.length===32 && !state.bracket){ await generateBracket(); }
   // banniere paris restants
@@ -1236,6 +1325,10 @@ var betModalMatchId = null;
 function openBetModal(matchId){
   const m = findMatch(matchId);
   if(!m || !m.p1 || !m.p2) return;
+  if(mode==='player' && myPlayerPaid===false){
+    alert("Tu ne peux pas parier tant que ton inscription n'est pas payée.");
+    return;
+  }
   const already = (bets[matchId]||[]).some(b=>b.tel === (spectator && spectator.tel));
   if(!already && myBetsLeft() <= 0){
     alert('Tu as déjà utilisé tes ' + limitFor(spectator.tel) + ' paris pour ce tournoi.');
@@ -1878,12 +1971,31 @@ function renderAdmin(){
   document.getElementById('playerCount').textContent = `${state.players.length} / 32`;
   const listWrap = document.getElementById('playerListWrap');
   if(state.players.length){
-    listWrap.innerHTML = `<div class="chip muted" style="margin-bottom:8px;">JOUEURS INSCRITS</div>
-      <div style="max-height:190px; overflow-y:auto;">
-      ${state.players.map(p=>`<div class="row between small" style="border-bottom:1px solid var(--line); padding:6px 0;">
-        <span>${p.prenom} ${p.nom} <span class="muted">· ${p.age} ans</span></span>
-        <span class="muted tiny">${p.club} · ${p.tel||'—'} · PIN <span class="font-mono gold">${p.pin||'—'}</span></span>
-      </div>`).join('')}</div>`;
+    const nbPaid = state.players.filter(p=>p.paid===true).length;
+    const nbUnpaid = state.players.length - nbPaid;
+    listWrap.innerHTML = `<div class="row between" style="margin-bottom:8px;">
+        <span class="chip muted">JOUEURS INSCRITS</span>
+        <span class="tiny"><span class="gold">${nbPaid} payé${nbPaid>1?'s':''}</span> · <span style="color:var(--red);">${nbUnpaid} non payé${nbUnpaid>1?'s':''}</span></span>
+      </div>
+      <div style="max-height:340px; overflow-y:auto;">
+      ${state.players.map(p=>{
+        const paid = p.paid===true;
+        const pid = p.id.replace(/'/g,"\\'");
+        return `<div style="border-bottom:1px solid var(--line); padding:8px 0;">
+        <div class="row between" style="align-items:center;">
+          <span class="small"><b>${p.prenom} ${p.nom}</b> <span class="muted tiny">· ${p.club}</span></span>
+          <button onclick="togglePaid('${pid}')" class="chip" style="cursor:pointer; border:1px solid ${paid?'var(--gold)':'var(--red)'}; background:${paid?'rgba(0,232,122,0.14)':'rgba(255,45,138,0.14)'}; color:${paid?'var(--gold)':'var(--red)'}; font-weight:700; font-size:11px; padding:3px 10px;">${paid?'✅ Payé':'❌ Non payé'}</button>
+        </div>
+        <div class="row between" style="align-items:center; margin-top:4px;">
+          <span class="muted tiny">${p.tel||'—'} · PIN <span class="font-mono gold">${p.pin||'—'}</span></span>
+          <div class="row gap-xs">
+            <button onclick="waPlayer('${pid}','match')" title="Rappel match" class="chip" style="cursor:pointer; background:rgba(37,211,102,0.15); border:1px solid #25D366; color:#25D366; font-size:11px; padding:3px 8px;">⚽</button>
+            <button onclick="waPlayer('${pid}','paiement')" title="Rappel paiement" class="chip" style="cursor:pointer; background:rgba(255,45,138,0.15); border:1px solid var(--red); color:var(--red); font-size:11px; padding:3px 8px;">💰</button>
+            <button onclick="waPlayer('${pid}','parrainage')" title="Parrainage 200 FDJ" class="chip" style="cursor:pointer; background:rgba(0,232,122,0.15); border:1px solid var(--gold); color:var(--gold); font-size:11px; padding:3px 8px;">🎁</button>
+          </div>
+        </div>
+      </div>`;
+      }).join('')}</div>`;
   } else {
     listWrap.innerHTML = '';
   }
