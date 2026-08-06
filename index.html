@@ -1023,6 +1023,7 @@ function cashierReport(){
   let txt = `🎮 TOURNOI FC26 — LISTE CAISSIER\n${new Date().toLocaleDateString('fr-FR')} · ${players.length} joueurs\n`;
   txt += `✅ Payés : ${paid.length}   ❌ Non payés : ${unpaid.length}\n`;
   txt += `Recette encaissée : ${paid.length*1500} FDJ\n`;
+  txt += `Paiement : SHAKPOT sur place · CAC 102417 · Waafi 7394\n`;
   txt += `\n━━━━━━━━━━━━━━━━━━━━\n`;
   if(unpaid.length){
     txt += `\n❌ À FAIRE PAYER (${unpaid.length}) :\n`;
@@ -1060,6 +1061,7 @@ async function togglePaid(pid){
 }
 
 function waPlayer(pid, type){
+  const PAY_INFO = "Pour régler : passe directement à SHAKPOT, ou paye par CAC 102417 ou Waafi 7394.";
   const p = state.players.find(x=>x.id===pid);
   if(!p || !p.tel){ alert("Ce joueur n'a pas de numéro enregistré."); return; }
   const prenom = p.prenom || '';
@@ -1067,7 +1069,7 @@ function waPlayer(pid, type){
   if(type==='match'){
     msg = `Salut ${prenom} ! 🎮\n\nC'est bien ce soir le TOURNOI FC26 à Battleground Space, coup d'envoi 19h00. Ne tarde pas, viens un peu en avance pour ton premier match ! 🔥\n\nÀ tout à l'heure 💪`;
   } else if(type==='paiement'){
-    msg = `Salut ${prenom} ! 🎮\n\nPetit rappel : ton inscription au TOURNOI FC26 n'est pas encore réglée. Pour valider ta place et pouvoir jouer ce soir, il faut régler l'inscription (1 500 FDJ, tacos + boisson inclus).\n\nPasse me voir ou envoie-moi un message. Merci ! 🙏`;
+    msg = `Salut ${prenom} ! 🎮\n\nPetit rappel : ton inscription au TOURNOI FC26 n'est pas encore réglée. Pour valider ta place et pouvoir jouer ce soir, il faut régler l'inscription (1 500 FDJ, tacos + boisson inclus).\n\n${PAY_INFO}\n\nMerci ! 🙏`;
   } else if(type==='parrainage'){
     const invited = state.players.filter(x=>x.invited_by===p.id);
     const unpaid = invited.filter(x=>x.paid!==true);
@@ -1077,14 +1079,14 @@ function waPlayer(pid, type){
     } else if(unpaid.length===0){
       msg = `Salut ${prenom} ! 🎮\n\nBravo, les ${paidCount} joueur${paidCount>1?'s':''} que tu as ramené${paidCount>1?'s ont':' a'} payé ! Ton bonus de ${paidCount*200} FDJ est validé. 💰🔥\n\nMerci et continue à ramener du monde !`;
     } else {
-      const names = unpaid.map(x=>'• '+x.prenom+' '+x.nom).join('\n');
-      msg = `Salut ${prenom} ! 🎮\n\nPour toucher ton bonus parrainage au TOURNOI FC26, il faut que les joueurs que tu as ramenés règlent leur inscription.\n\nCes personnes ne se sont pas encore inscrites :\n${names}\n\nDis-leur de venir régler (1 500 FDJ) : dès qu'ils paient, tu gagnes 200 FDJ par personne. Ça te fait +${unpaid.length*200} FDJ à récupérer ! 💰🔥`;
+      const names = unpaid.map(x=>'• '+x.prenom+' '+x.nom+(x.tel?' ('+x.tel+')':'')).join('\n');
+      msg = `Salut ${prenom} ! 🎮\n\nPour toucher ta prime de parrainage au TOURNOI FC26, il faut que les joueurs que tu as ramenés règlent leur inscription.\n\n${unpaid.length} personne${unpaid.length>1?'s':''} que tu as ramenée${unpaid.length>1?'s n\'ont':' n\'a'} pas encore payé :\n${names}\n\n👉 Dis-leur de venir payer pour que tu touches ta prime : tu gagnes 200 FDJ par personne inscrite, soit +${unpaid.length*200} FDJ à récupérer ! 💰\n\n${PAY_INFO}`;
     }
   } else if(type==='confirmation'){
     if(p.paid===true){
       msg = `Salut ${prenom} ! 🎮\n\n✅ C'est validé : tu es bien INSCRIT au TOURNOI FC26 à Battleground Space (vendredi 7 août, 19h00). Ta place est réservée, tu vas jouer ! 🏆\n\n🔑 Ton code PIN joueur : ${p.pin || '—'}\nGarde-le, c'est lui qui te connecte sur le site en mode joueur pour suivre ton tableau, tes matchs et parier sur les autres joueurs.\n\nÀ ce soir ! 💪`;
     } else {
-      msg = `Salut ${prenom} ! 🎮\n\nTu as bien accès au site du TOURNOI FC26 à Battleground Space, MAIS tu n'es pas encore inscrit pour jouer. ⚠️\n\n❌ Il te reste à régler ton inscription (1 500 FDJ, tacos + boisson inclus) pour valider ta place et pouvoir jouer vendredi 7 août à 19h00.\n\n🔑 Ton code PIN joueur : ${p.pin || '—'}\nGarde-le : dès que ton paiement est validé, il te connecte en mode joueur pour suivre ton tableau et parier sur les autres joueurs.\n\nPasse régler dès que possible pour ne pas perdre ta place ! 🙏`;
+      msg = `Salut ${prenom} ! 🎮\n\nTu as bien accès au site du TOURNOI FC26 à Battleground Space, MAIS tu n'es pas encore inscrit pour jouer. ⚠️\n\n❌ Il te reste à régler ton inscription (1 500 FDJ, tacos + boisson inclus) pour valider ta place et pouvoir jouer vendredi 7 août à 19h00.\n\n${PAY_INFO}\n\n🔑 Ton code PIN joueur : ${p.pin || '—'}\nGarde-le : dès que ton paiement est validé, il te connecte en mode joueur pour suivre ton tableau et parier sur les autres joueurs.\n\nPasse régler dès que possible pour ne pas perdre ta place ! 🙏`;
     }
   }
   const url = 'https://wa.me/' + waNumber(p.tel) + '?text=' + encodeURIComponent(msg);
