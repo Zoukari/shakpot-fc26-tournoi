@@ -994,6 +994,8 @@ function waNumber(tel){
   if(hasPlus) return digits;                 // ex: +33 7... -> 337...
   if(digits.indexOf('253')===0) return digits; // déjà en indicatif Djibouti
   if(digits.indexOf('00')===0) return digits.slice(2); // 00 international -> retirer le 00
+  // Numéro français local (0X XX...) de 10 chiffres commençant par 0 -> +33
+  if(digits.length===10 && digits.charAt(0)==='0') return '33' + digits.slice(1);
   // Numéro long qui n'est pas un local djiboutien (8 chiffres) : on suppose qu'il est déjà international
   if(digits.length > 8) return digits;
   // Sinon : numéro local djiboutien (8 chiffres) -> préfixer 253
@@ -1169,9 +1171,64 @@ async function saveEditPlayer(){
 async function deletePlayer(){
   if(!editingPlayerId) return;
   const p = state.players.find(x=>x.id===editingPlayerId);
-  if(!confirm(`Supprimer ${p?p.prenom+' '+p.nom:'ce joueur'} ? Si le tirage est déjà lancé, régénère-le ensuite.`)) return;
-  const {error} = await sb.from('players').delete().eq('id', editingPlayerId);
+  const pid = editingPlayerId;
+  const name = p ? p.prenom+' '+p.nom : 'ce joueur';
+
+  // Le joueur est-il engagé dans un match en cours (tirage déjà lancé) ?
+  let forfeitMatch = null;
+  if(state.bracket){
+    state.bracket.rounds.forEach(rd=>rd.matches.forEach(m=>{
+      if(m.thirdPlace) { /* petite finale gérée pareil */ }
+      const inThis = (m.p1 && m.p1.id===pid) || (m.p2 && m.p2.id===pid);
+      if(inThis && m.status!=='done' && !m.isBye){ forfeitMatch = m; }
+    }));
+  }
+
+  let confirmMsg;
+  if(forfeitMatch){
+    const opp = (forfeitMatch.p1 && forfeitMatch.p1.id===pid) ? forfeitMatch.p2 : forfeitMatch.p1;
+    confirmMsg = `Supprimer ${name} ?\n\nLe tournoi a commencé : ${opp?opp.prenom+' '+opp.nom:'son adversaire'} gagnera le match par forfait (3-0) et passera au tour suivant.`;
+  } else {
+    confirmMsg = `Supprimer ${name} ?`;
+  }
+  if(!confirm(confirmMsg)) return;
+
+  // 1) supprimer en base
+  const {error} = await sb.from('players').delete().eq('id', pid);
   if(error){ alert("Erreur suppression : "+error.message); return; }
+
+  // 2) gérer le forfait dans le bracket
+  if(state.bracket){
+    let bracketChanged = false;
+    state.bracket.rounds.forEach(rd=>rd.matches.forEach(m=>{
+      const isP1 = m.p1 && m.p1.id===pid;
+      const isP2 = m.p2 && m.p2.id===pid;
+      if(!isP1 && !isP2) return;
+      const opp = isP1 ? m.p2 : m.p1;
+      if(m.status==='done'){
+        // match déjà joué : on retire juste la référence (historique)
+        return;
+      }
+      if(opp){
+        // l'adversaire gagne par forfait 3-0
+        m.winnerId = opp.id;
+        m.status = 'done';
+        m.score1 = isP1 ? 0 : 3;
+        m.score2 = isP1 ? 3 : 0;
+        m.forfeit = true;
+      } else {
+        // pas encore d'adversaire : on vide simplement le slot
+        if(isP1) m.p1 = null; else m.p2 = null;
+        if(m.status==='pending') m.status = 'waiting';
+      }
+      bracketChanged = true;
+    }));
+    if(bracketChanged){
+      propagate();          // fait avancer le gagnant du forfait
+      await saveBracket();
+    }
+  }
+
   closeEditPlayer();
   await refreshAll();
   renderAdmin();
@@ -1652,11 +1709,11 @@ function matchCard(m, opts={}){
     const w2 = isDone && m.winnerId===p2.id;
     body = `
       <div class="row between small" style="padding:4px 0; ${w1?'color:var(--gold); font-weight:600;':''}">
-        <span>${nameTag(p1)} <span class="tiny muted">(${p1.club})</span></span>
+        <span>${nameTag(p1)}</span>
         ${isDone?`<span class="font-mono">${m.score1}</span>`:''}
       </div>
       <div class="row between small" style="padding:4px 0; ${w2?'color:var(--gold); font-weight:600;':''}">
-        <span>${nameTag(p2)} <span class="tiny muted">(${p2.club})</span></span>
+        <span>${nameTag(p2)}</span>
         ${isDone?`<span class="font-mono">${m.score2}</span>`:''}
       </div>`;
     if(isPending){
@@ -1944,7 +2001,7 @@ function renderClassement(){
   body.innerHTML = rows.map((r,i)=>`
     <tr class="classement-row${r.player.id===myPlayerId?' me':''}">
       <td class="muted">${i+1}</td>
-      <td>${nameTag(r.player)} <span class="tiny muted">${r.player.club}</span></td>
+      <td>${nameTag(r.player)}</td>
       <td class="font-mono gold" style="text-align:center; font-weight:700;">${r.pts}</td>
       <td class="font-mono" style="text-align:center;">${r.played}</td>
       <td class="font-mono" style="text-align:center;">${r.gf}</td>
