@@ -546,8 +546,14 @@
 
       <div id="playerListWrap" style="margin-top:14px;"></div>
 
+      <button onclick="cashierReport()" class="btn g1" style="margin-top:12px; width:100%; background:rgba(0,232,122,0.14); border:1px solid var(--gold); color:var(--gold); font-weight:700;">📋 Rapport caissier (partager la liste)</button>
+
+      <div id="bracketHint" class="hidden" style="margin-top:14px; padding:10px 12px; border-radius:10px; background:rgba(242,183,5,0.12); border:1px solid var(--gold);">
+        <div class="small" style="color:var(--gold);">⚠️ Le tableau n'est pas encore lancé. Clique sur « Générer le tirage » ci-dessous pour créer l'arbre avec les joueurs inscrits.</div>
+      </div>
+
       <div class="row gap-sm" style="margin-top:14px;">
-        <button onclick="regenerateBracket()" class="btn g1">Régénérer le tirage</button>
+        <button onclick="regenerateBracket()" class="btn btn-primary g1">🎯 Générer le tirage</button>
         <button onclick="resetAll()" class="btn btn-danger g1">Réinitialiser tout</button>
       </div>
     </div>
@@ -1005,6 +1011,41 @@ function isRecognizedAdminPhone(tel){
 }
 
 
+// ---- rapport caissier : liste partageable nom/prénom/numéro + statut ----
+function cashierReport(){
+  const players = [...state.players].sort((a,b)=>{
+    // non payés d'abord (à relancer), puis payés
+    if((a.paid===true)!==(b.paid===true)) return (a.paid===true)?1:-1;
+    return (a.prenom||'').localeCompare(b.prenom||'');
+  });
+  const paid = players.filter(p=>p.paid===true);
+  const unpaid = players.filter(p=>p.paid!==true);
+  let txt = `🎮 TOURNOI FC26 — LISTE CAISSIER\n${new Date().toLocaleDateString('fr-FR')} · ${players.length} joueurs\n`;
+  txt += `✅ Payés : ${paid.length}   ❌ Non payés : ${unpaid.length}\n`;
+  txt += `Recette encaissée : ${paid.length*1500} FDJ\n`;
+  txt += `\n━━━━━━━━━━━━━━━━━━━━\n`;
+  if(unpaid.length){
+    txt += `\n❌ À FAIRE PAYER (${unpaid.length}) :\n`;
+    unpaid.forEach((p,i)=>{ txt += `${i+1}. ${p.prenom} ${p.nom} — ${p.tel||'—'}\n`; });
+  }
+  if(paid.length){
+    txt += `\n✅ DÉJÀ PAYÉS (${paid.length}) :\n`;
+    paid.forEach((p,i)=>{ txt += `${i+1}. ${p.prenom} ${p.nom} — ${p.tel||'—'}\n`; });
+  }
+  // Partage natif si dispo (mobile), sinon copie presse-papier
+  if(navigator.share){
+    navigator.share({title:'Liste caissier — Tournoi FC26', text:txt}).catch(()=>{});
+  } else if(navigator.clipboard){
+    navigator.clipboard.writeText(txt).then(()=>alert('Liste copiée ! Colle-la où tu veux (WhatsApp, etc.)')).catch(()=>fallbackCopy(txt));
+  } else { fallbackCopy(txt); }
+}
+function fallbackCopy(txt){
+  const ta = document.createElement('textarea');
+  ta.value = txt; document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); alert('Liste copiée !'); }catch(e){ alert(txt); }
+  document.body.removeChild(ta);
+}
+
 // ---- statut paiement + WhatsApp (admin) ----
 async function togglePaid(pid){
   const p = state.players.find(x=>x.id===pid);
@@ -1028,12 +1069,22 @@ function waPlayer(pid, type){
   } else if(type==='paiement'){
     msg = `Salut ${prenom} ! 🎮\n\nPetit rappel : ton inscription au TOURNOI FC26 n'est pas encore réglée. Pour valider ta place et pouvoir jouer ce soir, il faut régler l'inscription (1 500 FDJ, tacos + boisson inclus).\n\nPasse me voir ou envoie-moi un message. Merci ! 🙏`;
   } else if(type==='parrainage'){
-    msg = `Salut ${prenom} ! 🎮\n\nBon plan : si tu ramènes des joueurs au TOURNOI FC26, tu gagnes 200 FDJ par personne inscrite grâce à toi ! 💰\n\nPlus tu ramènes de monde, plus tu gagnes. Parles-en autour de toi et dis-moi qui vient de ta part 🔥`;
+    const invited = state.players.filter(x=>x.invited_by===p.id);
+    const unpaid = invited.filter(x=>x.paid!==true);
+    const paidCount = invited.length - unpaid.length;
+    if(invited.length===0){
+      msg = `Salut ${prenom} ! 🎮\n\nBon plan pour le TOURNOI FC26 : tu gagnes 200 FDJ par joueur que tu ramènes ! 💰\n\nParles-en autour de toi et dis-moi qui vient de ta part. Plus tu ramènes de monde, plus tu gagnes 🔥`;
+    } else if(unpaid.length===0){
+      msg = `Salut ${prenom} ! 🎮\n\nBravo, les ${paidCount} joueur${paidCount>1?'s':''} que tu as ramené${paidCount>1?'s ont':' a'} payé ! Ton bonus de ${paidCount*200} FDJ est validé. 💰🔥\n\nMerci et continue à ramener du monde !`;
+    } else {
+      const names = unpaid.map(x=>'• '+x.prenom+' '+x.nom).join('\n');
+      msg = `Salut ${prenom} ! 🎮\n\nPour toucher ton bonus parrainage au TOURNOI FC26, il faut que les joueurs que tu as ramenés règlent leur inscription.\n\nCes personnes ne se sont pas encore inscrites :\n${names}\n\nDis-leur de venir régler (1 500 FDJ) : dès qu'ils paient, tu gagnes 200 FDJ par personne. Ça te fait +${unpaid.length*200} FDJ à récupérer ! 💰🔥`;
+    }
   } else if(type==='confirmation'){
     if(p.paid===true){
-      msg = `Salut ${prenom} ! 🎮\n\n✅ C'est validé : tu es bien INSCRIT au TOURNOI FC26 à Battleground Space (vendredi 7 août, 19h00). Ta place est réservée, tu vas jouer ! 🏆\n\n🔑 Ton code PIN joueur : ${p.pin || '—'}\nGarde-le, c'est lui qui te connecte sur le site en mode joueur pour suivre ton tableau et tes matchs.\n\nÀ ce soir ! 💪`;
+      msg = `Salut ${prenom} ! 🎮\n\n✅ C'est validé : tu es bien INSCRIT au TOURNOI FC26 à Battleground Space (vendredi 7 août, 19h00). Ta place est réservée, tu vas jouer ! 🏆\n\n🔑 Ton code PIN joueur : ${p.pin || '—'}\nGarde-le, c'est lui qui te connecte sur le site en mode joueur pour suivre ton tableau, tes matchs et parier sur les autres joueurs.\n\nÀ ce soir ! 💪`;
     } else {
-      msg = `Salut ${prenom} ! 🎮\n\nTu as bien accès au site du TOURNOI FC26 à Battleground Space, MAIS tu n'es pas encore inscrit pour jouer. ⚠️\n\n❌ Il te reste à régler ton inscription (1 500 FDJ, tacos + boisson inclus) pour valider ta place et pouvoir jouer vendredi 7 août à 19h00.\n\n🔑 Ton code PIN joueur : ${p.pin || '—'}\nGarde-le : dès que ton paiement est validé, il te connecte en mode joueur pour suivre ton tableau.\n\nPasse régler dès que possible pour ne pas perdre ta place ! 🙏`;
+      msg = `Salut ${prenom} ! 🎮\n\nTu as bien accès au site du TOURNOI FC26 à Battleground Space, MAIS tu n'es pas encore inscrit pour jouer. ⚠️\n\n❌ Il te reste à régler ton inscription (1 500 FDJ, tacos + boisson inclus) pour valider ta place et pouvoir jouer vendredi 7 août à 19h00.\n\n🔑 Ton code PIN joueur : ${p.pin || '—'}\nGarde-le : dès que ton paiement est validé, il te connecte en mode joueur pour suivre ton tableau et parier sur les autres joueurs.\n\nPasse régler dès que possible pour ne pas perdre ta place ! 🙏`;
     }
   }
   const url = 'https://wa.me/' + waNumber(p.tel) + '?text=' + encodeURIComponent(msg);
@@ -2090,6 +2141,9 @@ function renderAdmin(){
   }
 
   document.getElementById('playerCount').textContent = `${state.players.length} / 32`;
+  // afficher l'avertissement si des joueurs sont inscrits mais le tirage pas encore lancé
+  const bh = document.getElementById('bracketHint');
+  if(bh) bh.classList.toggle('hidden', !(state.players.length>=2 && !state.bracket));
   // Remplir le menu "invité par" avec les joueurs déjà inscrits
   const invSel = document.getElementById('pInvitedBy');
   if(invSel){
@@ -2126,7 +2180,7 @@ function renderAdmin(){
             if(inviter) extra += `<div class="tiny" style="color:#8a9;">↳ invité par ${inviter.prenom} ${inviter.nom}</div>`;
             if(invited.length>0){
               if(paidInvited>0) extra += `<div class="tiny" style="color:var(--gold);">🎁 récompense acquise : ${paidInvited} payé${paidInvited>1?'s':''} · ${paidInvited*200} FDJ</div>`;
-              if(unpaidInvited>0) extra += `<div class="tiny" style="color:var(--red);">⏳ en attente du paiement de ${unpaidInvited} joueur${unpaidInvited>1?'s':''} · +${unpaidInvited*200} FDJ potentiels</div>`;
+              if(unpaidInvited>0) extra += `<div class="tiny" style="color:var(--red);">En attente du paiement de ${unpaidInvited} joueur${unpaidInvited>1?'s':''} · +${unpaidInvited*200} FDJ potentiels</div>`;
             }
             return extra;
           })() + `
@@ -2135,7 +2189,7 @@ function renderAdmin(){
             <button onclick="waPlayer('${pid}','confirmation')" title="Envoyer la confirmation (inscription + PIN)" class="chip" style="cursor:pointer; background:rgba(37,211,102,0.15); border:1px solid #25D366; color:#25D366; font-size:11px; padding:3px 8px;">📩</button>
             <button onclick="waPlayer('${pid}','match')" title="Rappel match" class="chip" style="cursor:pointer; background:rgba(37,211,102,0.15); border:1px solid #25D366; color:#25D366; font-size:11px; padding:3px 8px;">⚽</button>
             <button onclick="waPlayer('${pid}','paiement')" title="Rappel paiement" class="chip" style="cursor:pointer; background:rgba(255,45,138,0.15); border:1px solid var(--red); color:var(--red); font-size:11px; padding:3px 8px;">💰</button>
-            <button onclick="waPlayer('${pid}','parrainage')" title="Parrainage 200 FDJ" class="chip" style="cursor:pointer; background:rgba(0,232,122,0.15); border:1px solid var(--gold); color:var(--gold); font-size:11px; padding:3px 8px;">🎁</button>
+            <button onclick="waPlayer('${pid}','parrainage')" title="Bonus parrainage : relancer ses invités non payés" class="chip" style="cursor:pointer; background:rgba(0,232,122,0.15); border:1px solid var(--gold); color:var(--gold); font-size:11px; padding:3px 8px;">🎁</button>
           </div>
         </div>
       </div>`;
