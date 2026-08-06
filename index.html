@@ -1010,8 +1010,9 @@ async function togglePaid(pid){
   const p = state.players.find(x=>x.id===pid);
   if(!p) return;
   const next = !(p.paid===true);
-  const {error} = await sb.from('players').update({paid: next}).eq('id', pid);
+  const {data: updated, error} = await sb.from('players').update({paid: next}).eq('id', pid).select();
   if(error){ alert("Erreur maj paiement : "+error.message); return; }
+  if(!updated || updated.length===0){ alert("La mise à jour du paiement a échoué (permission refusée côté base)."); return; }
   p.paid = next;
   await refreshAll();
   renderAdmin();
@@ -1078,8 +1079,13 @@ async function saveEditPlayer(){
   const invited_by = document.getElementById('edInvitedBy').value || null;
   if(!prenom || !nom || !tel){ err.textContent = "Prénom, nom et numéro sont obligatoires."; err.classList.remove('hidden'); return; }
   const patch = {prenom, nom, age: age?parseInt(age):null, club, tel, pin, paid, invited_by};
-  const {error} = await sb.from('players').update(patch).eq('id', editingPlayerId);
+  const {data: updated, error} = await sb.from('players').update(patch).eq('id', editingPlayerId).select();
   if(error){ err.textContent = "Erreur : "+error.message; err.classList.remove('hidden'); return; }
+  if(!updated || updated.length===0){
+    err.textContent = "La modification n'a pas été enregistrée (permission refusée côté base). Contacte le développeur.";
+    err.classList.remove('hidden');
+    return;
+  }
   // mettre à jour aussi dans le bracket (nom affiché dans les cartes)
   if(state.bracket){
     let changed = false;
