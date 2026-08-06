@@ -1068,6 +1068,8 @@ function waPlayer(pid, type){
   let msg = '';
   if(type==='match'){
     msg = `Salut ${prenom} ! 🎮\n\nC'est bien ce soir le TOURNOI FC26 à Battleground Space, coup d'envoi 19h00. Ne tarde pas, viens un peu en avance pour ton premier match ! 🔥\n\nÀ tout à l'heure 💪`;
+  } else if(type==='bienvenue'){
+    msg = `Bienvenue ${prenom} ! 🎉🎮\n\nTon inscription au TOURNOI FC26 est bien réglée, ta place est validée ✅. Tu fais officiellement partie des joueurs de Battleground Space, vendredi 7 août à 19h00 ! 🏆\n\n🔑 Ton code PIN joueur : ${p.pin || '—'}\nConnecte-toi sur le site en mode joueur avec ce code pour suivre ton tableau, tes matchs et parier sur les autres joueurs.\n\nPrépare bien ton équipe et à ce soir ! 🔥💪`;
   } else if(type==='paiement'){
     msg = `Salut ${prenom} ! 🎮\n\nPetit rappel : ton inscription au TOURNOI FC26 n'est pas encore réglée. Pour valider ta place et pouvoir jouer ce soir, il faut régler l'inscription (1 500 FDJ, tacos + boisson inclus).\n\n${PAY_INFO}\n\nMerci ! 🙏`;
   } else if(type==='parrainage'){
@@ -2188,6 +2190,7 @@ function renderAdmin(){
           })() + `
           <div class="row gap-xs">
             <button onclick="editPlayer('${pid}')" title="Modifier" class="chip" style="cursor:pointer; background:rgba(255,255,255,0.08); border:1px solid var(--line); color:var(--ink); font-size:11px; padding:3px 8px;">✏️</button>
+            ${paid ? `<button onclick="waPlayer('${pid}','bienvenue')" title="Message de bienvenue (payé)" class="chip" style="cursor:pointer; background:rgba(0,232,122,0.2); border:1px solid var(--gold); color:var(--gold); font-size:11px; padding:3px 8px;">🎉</button>` : ''}
             <button onclick="waPlayer('${pid}','confirmation')" title="Envoyer la confirmation (inscription + PIN)" class="chip" style="cursor:pointer; background:rgba(37,211,102,0.15); border:1px solid #25D366; color:#25D366; font-size:11px; padding:3px 8px;">📩</button>
             <button onclick="waPlayer('${pid}','match')" title="Rappel match" class="chip" style="cursor:pointer; background:rgba(37,211,102,0.15); border:1px solid #25D366; color:#25D366; font-size:11px; padding:3px 8px;">⚽</button>
             <button onclick="waPlayer('${pid}','paiement')" title="Rappel paiement" class="chip" style="cursor:pointer; background:rgba(255,45,138,0.15); border:1px solid var(--red); color:var(--red); font-size:11px; padding:3px 8px;">💰</button>
