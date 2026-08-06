@@ -985,9 +985,19 @@ function normTel(t){ return (t||'').replace(/\s|-/g,''); }
 
 // Numéro WhatsApp au format international Djibouti (+253)
 function waNumber(tel){
-  var t = normTel(tel).replace(/^\+/,'');
-  if(t.indexOf('253')===0) return t;
-  return '253' + t; // numéro local djiboutien
+  // Nettoyer : garder uniquement les chiffres et un éventuel + en tête
+  var raw = (tel||'').replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, ''); // marques de direction invisibles
+  var hasPlus = raw.trim().charAt(0) === '+';
+  var digits = raw.replace(/\D/g, ''); // que les chiffres
+  if(!digits) return '';
+  // Numéro déjà international (commence par + ou par un indicatif pays connu)
+  if(hasPlus) return digits;                 // ex: +33 7... -> 337...
+  if(digits.indexOf('253')===0) return digits; // déjà en indicatif Djibouti
+  if(digits.indexOf('00')===0) return digits.slice(2); // 00 international -> retirer le 00
+  // Numéro long qui n'est pas un local djiboutien (8 chiffres) : on suppose qu'il est déjà international
+  if(digits.length > 8) return digits;
+  // Sinon : numéro local djiboutien (8 chiffres) -> préfixer 253
+  return '253' + digits;
 }
 
 // Verrou "non payé" : floute tout et affiche l'overlay rouge
