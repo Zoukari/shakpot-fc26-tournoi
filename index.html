@@ -2225,13 +2225,16 @@ function renderAdmin(){
   }
   const listWrap = document.getElementById('playerListWrap');
   if(state.players.length){
+    // mémoriser la position de scroll pour la restaurer après le re-rendu
+    const oldScroll = document.getElementById('playerListScroll');
+    const savedScrollTop = oldScroll ? oldScroll.scrollTop : 0;
     const nbPaid = state.players.filter(p=>p.paid===true).length;
     const nbUnpaid = state.players.length - nbPaid;
     listWrap.innerHTML = `<div class="row between" style="margin-bottom:8px;">
         <span class="chip muted">JOUEURS INSCRITS</span>
         <span class="tiny"><span class="gold">${nbPaid} payé${nbPaid>1?'s':''}</span> · <span style="color:var(--red);">${nbUnpaid} non payé${nbUnpaid>1?'s':''}</span></span>
       </div>
-      <div style="max-height:340px; overflow-y:auto;">
+      <div id="playerListScroll" style="max-height:340px; overflow-y:auto;">
       ${state.players.map(p=>{
         const paid = p.paid===true;
         const pid = p.id.replace(/'/g,"\\'");
@@ -2266,6 +2269,9 @@ function renderAdmin(){
         </div>
       </div>`;
       }).join('')}</div>`;
+    // restaurer la position de scroll après le re-rendu
+    const newScroll = document.getElementById('playerListScroll');
+    if(newScroll && savedScrollTop) newScroll.scrollTop = savedScrollTop;
   } else {
     listWrap.innerHTML = '';
   }
