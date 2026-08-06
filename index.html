@@ -2009,10 +2009,15 @@ function renderAdmin(){
           <span class="muted tiny">${p.tel||'—'} · PIN <span class="font-mono gold">${p.pin||'—'}</span></span>`
         + (()=>{
             const inviter = p.invited_by ? state.players.find(x=>x.id===p.invited_by) : null;
-            const invitedCount = state.players.filter(x=>x.invited_by===p.id).length;
+            const invited = state.players.filter(x=>x.invited_by===p.id);
+            const paidInvited = invited.filter(x=>x.paid===true).length;
+            const unpaidInvited = invited.length - paidInvited;
             let extra = '';
             if(inviter) extra += `<div class="tiny" style="color:#8a9;">↳ invité par ${inviter.prenom} ${inviter.nom}</div>`;
-            if(invitedCount>0) extra += `<div class="tiny" style="color:var(--gold);">🎁 a invité ${invitedCount} joueur${invitedCount>1?'s':''} · ${invitedCount*200} FDJ</div>`;
+            if(invited.length>0){
+              if(paidInvited>0) extra += `<div class="tiny" style="color:var(--gold);">🎁 récompense acquise : ${paidInvited} payé${paidInvited>1?'s':''} · ${paidInvited*200} FDJ</div>`;
+              if(unpaidInvited>0) extra += `<div class="tiny" style="color:var(--red);">⏳ en attente du paiement de ${unpaidInvited} joueur${unpaidInvited>1?'s':''} · +${unpaidInvited*200} FDJ potentiels</div>`;
+            }
             return extra;
           })() + `
           <div class="row gap-xs">
