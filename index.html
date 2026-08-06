@@ -434,6 +434,37 @@
 </div>
 
 <!-- ============ BET MODAL ============ -->
+<div id="editPlayerModal" class="hidden modal-backdrop">
+  <div class="glass-panel" style="max-width:380px; width:92%; padding:22px;">
+    <div class="row between" style="margin-bottom:16px;">
+      <div class="font-display" style="font-size:18px;">Modifier le joueur</div>
+      <button onclick="closeEditPlayer()" class="btn btn-sm">✕</button>
+    </div>
+    <input id="edPrenom" placeholder="Prénom" class="input input-sm" style="margin-bottom:8px;">
+    <input id="edNom" placeholder="Nom" class="input input-sm" style="margin-bottom:8px;">
+    <input id="edAge" type="number" placeholder="Âge" class="input input-sm" style="margin-bottom:8px;">
+    <input id="edClub" list="clubList" placeholder="Club" class="input input-sm" style="margin-bottom:8px;">
+    <input id="edTel" type="tel" placeholder="Numéro de téléphone" class="input input-sm" style="margin-bottom:8px;">
+    <div class="row gap-sm" style="align-items:center; margin-bottom:8px;">
+      <span class="tiny muted" style="min-width:40px;">PIN</span>
+      <input id="edPin" class="input input-sm font-mono" style="max-width:90px; margin-bottom:0;">
+      <button onclick="regenEditPin()" class="btn btn-sm">🎲 Nouveau</button>
+    </div>
+    <label class="row gap-sm" style="align-items:center; margin-bottom:8px; cursor:pointer;">
+      <input id="edPaid" type="checkbox" style="width:18px; height:18px; accent-color:var(--gold);">
+      <span class="small">✅ Inscription payée</span>
+    </label>
+    <select id="edInvitedBy" class="input input-sm" style="margin-bottom:14px;">
+      <option value="">Invité par… (personne)</option>
+    </select>
+    <p id="editPlayerError" class="red small hidden" style="margin:0 0 10px;"></p>
+    <div class="row gap-sm">
+      <button onclick="saveEditPlayer()" class="btn btn-primary g1">Enregistrer</button>
+      <button onclick="deletePlayer()" class="btn btn-danger">🗑 Supprimer</button>
+    </div>
+  </div>
+</div>
+
 <div id="betModal" class="hidden modal-backdrop">
   <div class="modal-box">
     <div class="font-display" style="font-size:18px; margin-bottom:4px;">🎲 Devine le score exact</div>
@@ -997,9 +1028,81 @@ function waPlayer(pid, type){
     msg = `Salut ${prenom} ! 🎮\n\nPetit rappel : ton inscription au TOURNOI FC26 n'est pas encore réglée. Pour valider ta place et pouvoir jouer ce soir, il faut régler l'inscription (1 500 FDJ, tacos + boisson inclus).\n\nPasse me voir ou envoie-moi un message. Merci ! 🙏`;
   } else if(type==='parrainage'){
     msg = `Salut ${prenom} ! 🎮\n\nBon plan : si tu ramènes des joueurs au TOURNOI FC26, tu gagnes 200 FDJ par personne inscrite grâce à toi ! 💰\n\nPlus tu ramènes de monde, plus tu gagnes. Parles-en autour de toi et dis-moi qui vient de ta part 🔥`;
+  } else if(type==='confirmation'){
+    const paidLine = (p.paid===true)
+      ? `✅ Paiement : réglé, ta place est validée !`
+      : `❌ Paiement : pas encore réglé. Pense à régler ton inscription (1 500 FDJ) pour pouvoir jouer.`;
+    msg = `Salut ${prenom} ! 🎮\n\nTu es bien inscrit au TOURNOI FC26 à Battleground Space (vendredi 7 août, 19h00). 🏆\n\n${paidLine}\n\n🔑 Ton code PIN joueur : ${p.pin || '—'}\nGarde-le, c'est lui qui te connecte sur le site en mode joueur pour suivre ton tableau.\n\nÀ ce soir ! 💪`;
   }
   const url = 'https://wa.me/' + waNumber(p.tel) + '?text=' + encodeURIComponent(msg);
   window.open(url, '_blank');
+}
+
+// ---- édition d'un joueur ----
+var editingPlayerId = null;
+function editPlayer(pid){
+  const p = state.players.find(x=>x.id===pid);
+  if(!p) return;
+  editingPlayerId = pid;
+  document.getElementById('edPrenom').value = p.prenom || '';
+  document.getElementById('edNom').value = p.nom || '';
+  document.getElementById('edAge').value = p.age || '';
+  document.getElementById('edClub').value = p.club || '';
+  document.getElementById('edTel').value = p.tel || '';
+  document.getElementById('edPin').value = p.pin || '';
+  document.getElementById('edPaid').checked = (p.paid===true);
+  const sel = document.getElementById('edInvitedBy');
+  sel.innerHTML = '<option value="">Invité par… (personne)</option>' +
+    state.players.filter(x=>x.id!==pid).map(x=>`<option value="${x.id}">${x.prenom} ${x.nom}</option>`).join('');
+  sel.value = p.invited_by || '';
+  document.getElementById('editPlayerError').classList.add('hidden');
+  document.getElementById('editPlayerModal').classList.remove('hidden');
+}
+function closeEditPlayer(){
+  document.getElementById('editPlayerModal').classList.add('hidden');
+  editingPlayerId = null;
+}
+function regenEditPin(){ document.getElementById('edPin').value = randomPin(); }
+
+async function saveEditPlayer(){
+  if(!editingPlayerId) return;
+  const err = document.getElementById('editPlayerError');
+  const prenom = document.getElementById('edPrenom').value.trim();
+  const nom = document.getElementById('edNom').value.trim();
+  const age = document.getElementById('edAge').value.trim();
+  const club = document.getElementById('edClub').value.trim();
+  const tel = document.getElementById('edTel').value.trim();
+  const pin = document.getElementById('edPin').value.trim();
+  const paid = document.getElementById('edPaid').checked;
+  const invited_by = document.getElementById('edInvitedBy').value || null;
+  if(!prenom || !nom || !tel){ err.textContent = "Prénom, nom et numéro sont obligatoires."; err.classList.remove('hidden'); return; }
+  const patch = {prenom, nom, age: age?parseInt(age):null, club, tel, pin, paid, invited_by};
+  const {error} = await sb.from('players').update(patch).eq('id', editingPlayerId);
+  if(error){ err.textContent = "Erreur : "+error.message; err.classList.remove('hidden'); return; }
+  // mettre à jour aussi dans le bracket (nom affiché dans les cartes)
+  if(state.bracket){
+    let changed = false;
+    state.bracket.rounds.forEach(rd=>rd.matches.forEach(m=>{
+      ['p1','p2'].forEach(k=>{
+        if(m[k] && m[k].id===editingPlayerId){ m[k].prenom = prenom; m[k].nom = nom; changed = true; }
+      });
+    }));
+    if(changed) await saveBracket();
+  }
+  closeEditPlayer();
+  await refreshAll();
+  renderAdmin();
+}
+
+async function deletePlayer(){
+  if(!editingPlayerId) return;
+  const p = state.players.find(x=>x.id===editingPlayerId);
+  if(!confirm(`Supprimer ${p?p.prenom+' '+p.nom:'ce joueur'} ? Si le tirage est déjà lancé, régénère-le ensuite.`)) return;
+  const {error} = await sb.from('players').delete().eq('id', editingPlayerId);
+  if(error){ alert("Erreur suppression : "+error.message); return; }
+  closeEditPlayer();
+  await refreshAll();
+  renderAdmin();
 }
 
 function refreshAdminButtonVisibility(){
@@ -2021,6 +2124,8 @@ function renderAdmin(){
             return extra;
           })() + `
           <div class="row gap-xs">
+            <button onclick="editPlayer('${pid}')" title="Modifier" class="chip" style="cursor:pointer; background:rgba(255,255,255,0.08); border:1px solid var(--line); color:var(--ink); font-size:11px; padding:3px 8px;">✏️</button>
+            <button onclick="waPlayer('${pid}','confirmation')" title="Envoyer la confirmation (inscription + PIN)" class="chip" style="cursor:pointer; background:rgba(37,211,102,0.15); border:1px solid #25D366; color:#25D366; font-size:11px; padding:3px 8px;">📩</button>
             <button onclick="waPlayer('${pid}','match')" title="Rappel match" class="chip" style="cursor:pointer; background:rgba(37,211,102,0.15); border:1px solid #25D366; color:#25D366; font-size:11px; padding:3px 8px;">⚽</button>
             <button onclick="waPlayer('${pid}','paiement')" title="Rappel paiement" class="chip" style="cursor:pointer; background:rgba(255,45,138,0.15); border:1px solid var(--red); color:var(--red); font-size:11px; padding:3px 8px;">💰</button>
             <button onclick="waPlayer('${pid}','parrainage')" title="Parrainage 200 FDJ" class="chip" style="cursor:pointer; background:rgba(0,232,122,0.15); border:1px solid var(--gold); color:var(--gold); font-size:11px; padding:3px 8px;">🎁</button>
