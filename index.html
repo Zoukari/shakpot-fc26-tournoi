@@ -787,7 +787,7 @@ async function enterSiteSpectator(){
 }
 
 function enterSitePlayer(){
-  const tel = document.getElementById('gatePlayerTel').value.trim();
+  const tel = cleanTel(document.getElementById('gatePlayerTel').value);
   const pin = document.getElementById('gatePlayerPin').value.trim();
   const err = document.getElementById('gatePlayerError');
   if(!tel || !pin){ err.classList.remove('hidden'); return; }
@@ -981,7 +981,18 @@ function findRoundName(matchId){
 // ---------- admin auth (numéro autorisé + code PIN, pas de compte Supabase) ----------
 var ADMIN_PIN = "2709";
 
-function normTel(t){ return (t||'').replace(/\s|-/g,''); }
+function cleanTel(t){
+  return (t||'').replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '').trim();
+}
+function normTel(t){
+  // Retire espaces, tirets, marques de direction invisibles, puis ne garde que les chiffres.
+  var s = (t||'').replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '');
+  var digits = s.replace(/\D/g, '');
+  if(digits.indexOf('00')===0) digits = digits.slice(2);       // 00 international -> retirer
+  if(digits.indexOf('253')===0 && digits.length > 8) digits = digits.slice(3); // indicatif Djibouti
+  else if(digits.indexOf('33')===0 && digits.length===11) digits = '0'+digits.slice(2); // FR +33 -> 0X
+  return digits;
+}
 
 // Numéro WhatsApp au format international Djibouti (+253)
 function waNumber(tel){
@@ -1140,7 +1151,7 @@ async function saveEditPlayer(){
   const nom = document.getElementById('edNom').value.trim();
   const age = document.getElementById('edAge').value.trim();
   const club = document.getElementById('edClub').value.trim();
-  const tel = document.getElementById('edTel').value.trim();
+  const tel = cleanTel(document.getElementById('edTel').value);
   const pin = document.getElementById('edPin').value.trim();
   const paid = document.getElementById('edPaid').checked;
   const invited_by = document.getElementById('edInvitedBy').value || null;
@@ -1292,7 +1303,7 @@ async function addPlayer(){
   const prenom = document.getElementById('pPrenom').value.trim();
   const age = document.getElementById('pAge').value.trim();
   const club = document.getElementById('pClub').value.trim();
-  const tel = document.getElementById('pTel').value.trim();
+  const tel = cleanTel(document.getElementById('pTel').value);
   const err = document.getElementById('playerError');
   if(!nom || !prenom || !age || !club || !tel){ err.textContent="Remplis tous les champs (le numéro est obligatoire)."; err.classList.remove('hidden'); return; }
   if(state.players.length>=32){ err.textContent="32 joueurs déjà inscrits (maximum)."; err.classList.remove('hidden'); return; }
