@@ -375,6 +375,13 @@
   <main class="container" style="padding:20px 16px;">
 
     <section id="tab-bracket">
+      <!-- Écran avant 19h : visible pour non-admins jusqu'au coup d'envoi -->
+      <div id="bracketLocked" class="hidden empty-state" style="padding:32px 20px;">
+        <div class="empty-state-icon">🔒</div>
+        <div class="empty-state-title">Tableau disponible à 19h00</div>
+        <div class="empty-state-text">Le tableau se débloque au coup d'envoi du tournoi.<br>Reviens à 19h00 pour suivre les matchs en direct.</div>
+        <div id="bracketLockCountdown" class="font-display" style="font-size:28px; color:var(--gold); margin-top:18px; letter-spacing:2px;">--:--:--</div>
+      </div>
       <div id="bracketEmpty" class="hidden empty-state">
         <div class="empty-state-icon">🏆</div>
         <div class="empty-state-title">L'arbre arrive bientôt</div>
@@ -835,6 +842,7 @@ function setTab(t){
     document.getElementById('tab-'+k).classList.toggle('hidden', k!==t);
     document.getElementById('nav'+k[0].toUpperCase()+k.slice(1)).classList.toggle('active', k===t);
   });
+  if(t==='bracket') applyBracketLock();
   var pw = document.getElementById('pageWatermark');
   if(pw) pw.style.display = (t === 'bracket') ? 'none' : '';
   var zoomFab = document.getElementById('bracketZoomFab');
@@ -1765,7 +1773,39 @@ var WM_LOGOS = [
 
 var bracketLayout = null; // { cols, yCenters, totalWidth, totalHeight } — mis à jour par renderBracket
 
+function isBracketUnlocked(){
+  // Admins voient toujours le tableau
+  if(isRecognizedAdminPhone(spectator && spectator.tel)) return true;
+  return new Date() >= TOURNAMENT_DATE;
+}
+
+function applyBracketLock(){
+  var locked = document.getElementById('bracketLocked');
+  var wrap   = document.getElementById('bracketWrap');
+  var empty  = document.getElementById('bracketEmpty');
+  if(!locked) return;
+  var unlocked = isBracketUnlocked();
+  locked.classList.toggle('hidden', unlocked);
+  if(wrap) wrap.classList.toggle('hidden', !unlocked);
+  if(empty && !unlocked) empty.classList.add('hidden'); // masquer l'état vide aussi si verrouillé
+  // compte à rebours
+  var cd = document.getElementById('bracketLockCountdown');
+  if(cd && !unlocked){
+    var diff = Math.max(0, TOURNAMENT_DATE - new Date());
+    var h = Math.floor(diff/3600000);
+    var m = Math.floor((diff%3600000)/60000);
+    var s = Math.floor((diff%60000)/1000);
+    cd.textContent = (h>0?String(h).padStart(2,'0')+'h ':'') +
+                     String(m).padStart(2,'0')+'min ' +
+                     String(s).padStart(2,'0')+'s';
+  }
+}
+
+setInterval(applyBracketLock, 1000);
+
 function renderBracket(){
+  applyBracketLock();
+  if(!isBracketUnlocked()) return; // tableau verrouillé : ne pas rendre
   const innerWrapEl = document.getElementById('bracketInnerWrap');
   const empty = document.getElementById('bracketEmpty');
   if(!state.bracket){
