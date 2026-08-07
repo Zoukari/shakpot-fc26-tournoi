@@ -1145,7 +1145,7 @@ function waPlayer(pid, type){
 // ---- édition / suppression spectateurs ----
 var editingSpectatorId = null;
 function editSpectator(sid){
-  const s = state.spectators.find(x=>x.id===sid);
+  const s = state.spectators.find(x=>x.tel===sid);
   if(!s) return;
   editingSpectatorId = sid;
   document.getElementById('edSpecNom').value = s.nom || '';
@@ -1163,7 +1163,7 @@ async function saveEditSpectator(){
   const tel = cleanTel(document.getElementById('edSpecTel').value);
   const err = document.getElementById('editSpecError');
   if(!nom){ err.textContent='Le nom est obligatoire.'; err.classList.remove('hidden'); return; }
-  const {data, error} = await sb.from('spectators').update({nom, tel}).eq('id', editingSpectatorId).select();
+  const {data, error} = await sb.from('spectators').update({nom, tel}).eq('tel', editingSpectatorId).select();
   if(error){ err.textContent='Erreur : '+error.message; err.classList.remove('hidden'); return; }
   if(!data||!data.length){ err.textContent='Modification non enregistrée (permission refusée).'; err.classList.remove('hidden'); return; }
   closeEditSpectator();
@@ -1171,9 +1171,9 @@ async function saveEditSpectator(){
 }
 async function deleteSpectator(sid, fromModal){
   const id = fromModal ? editingSpectatorId : sid;
-  const s = state.spectators.find(x=>x.id===id);
+  const s = state.spectators.find(x=>x.tel===id);
   if(!confirm('Supprimer '+(s?s.nom:'ce spectateur')+' ?')) return;
-  const {error} = await sb.from('spectators').delete().eq('id', id);
+  const {error} = await sb.from('spectators').delete().eq('tel', id);
   if(error){ alert('Erreur : '+error.message); return; }
   if(fromModal) closeEditSpectator();
   await refreshAll(); renderAdmin();
@@ -2309,7 +2309,7 @@ function renderAdmin(){
   if(specCount) specCount.textContent = specs.length;
   if(specList){
     specList.innerHTML = specs.length ? specs.map(s=>{
-      const sid = s.id.replace(/'/g,"\\'");
+      const sid = s.tel.replace(/'/g,"\\'");
       return `<div class="row between small" style="border-bottom:1px solid var(--line); padding:5px 0; align-items:center;">
         <div><b>${s.nom}</b> <span class="tiny muted font-mono">${s.tel}</span></div>
         <div class="row gap-xs">
