@@ -441,6 +441,22 @@
 </div>
 
 <!-- ============ BET MODAL ============ -->
+<div id="editSpectatorModal" class="hidden modal-backdrop">
+  <div class="glass-panel" style="max-width:340px; width:92%; padding:20px;">
+    <div class="row between" style="margin-bottom:14px;">
+      <div class="font-display" style="font-size:16px;">Modifier le spectateur</div>
+      <button onclick="closeEditSpectator()" class="btn btn-sm">✕</button>
+    </div>
+    <input id="edSpecNom" placeholder="Nom / Prénom" class="input input-sm" style="margin-bottom:8px;">
+    <input id="edSpecTel" type="tel" placeholder="Numéro de téléphone" class="input input-sm" style="margin-bottom:14px;">
+    <p id="editSpecError" class="red small hidden" style="margin:0 0 10px;"></p>
+    <div class="row gap-sm">
+      <button onclick="saveEditSpectator()" class="btn btn-primary g1">Enregistrer</button>
+      <button onclick="deleteSpectator(null,true)" class="btn btn-danger">🗑 Supprimer</button>
+    </div>
+  </div>
+</div>
+
 <div id="editPlayerModal" class="hidden modal-backdrop">
   <div class="glass-panel" style="max-width:380px; width:92%; padding:22px;">
     <div class="row between" style="margin-bottom:16px;">
@@ -1124,6 +1140,43 @@ function waPlayer(pid, type){
   }
   const url = 'https://wa.me/' + waNumber(p.tel) + '?text=' + encodeURIComponent(msg);
   window.open(url, '_blank');
+}
+
+// ---- édition / suppression spectateurs ----
+var editingSpectatorId = null;
+function editSpectator(sid){
+  const s = state.spectators.find(x=>x.id===sid);
+  if(!s) return;
+  editingSpectatorId = sid;
+  document.getElementById('edSpecNom').value = s.nom || '';
+  document.getElementById('edSpecTel').value = s.tel || '';
+  document.getElementById('editSpecError').classList.add('hidden');
+  document.getElementById('editSpectatorModal').classList.remove('hidden');
+}
+function closeEditSpectator(){
+  document.getElementById('editSpectatorModal').classList.add('hidden');
+  editingSpectatorId = null;
+}
+async function saveEditSpectator(){
+  if(!editingSpectatorId) return;
+  const nom = document.getElementById('edSpecNom').value.trim();
+  const tel = cleanTel(document.getElementById('edSpecTel').value);
+  const err = document.getElementById('editSpecError');
+  if(!nom){ err.textContent='Le nom est obligatoire.'; err.classList.remove('hidden'); return; }
+  const {data, error} = await sb.from('spectators').update({nom, tel}).eq('id', editingSpectatorId).select();
+  if(error){ err.textContent='Erreur : '+error.message; err.classList.remove('hidden'); return; }
+  if(!data||!data.length){ err.textContent='Modification non enregistrée (permission refusée).'; err.classList.remove('hidden'); return; }
+  closeEditSpectator();
+  await refreshAll(); renderAdmin();
+}
+async function deleteSpectator(sid, fromModal){
+  const id = fromModal ? editingSpectatorId : sid;
+  const s = state.spectators.find(x=>x.id===id);
+  if(!confirm('Supprimer '+(s?s.nom:'ce spectateur')+' ?')) return;
+  const {error} = await sb.from('spectators').delete().eq('id', id);
+  if(error){ alert('Erreur : '+error.message); return; }
+  if(fromModal) closeEditSpectator();
+  await refreshAll(); renderAdmin();
 }
 
 // ---- édition d'un joueur ----
@@ -2255,11 +2308,16 @@ function renderAdmin(){
   const specList = document.getElementById('spectatorsList');
   if(specCount) specCount.textContent = specs.length;
   if(specList){
-    specList.innerHTML = specs.length ? specs.map(s=>`
-      <div class="row between small" style="border-bottom:1px solid var(--line); padding:5px 0;">
-        <span><b>${s.nom}</b></span>
-        <span class="tiny muted font-mono">${s.tel}</span>
-      </div>`).join('') : `<div class="tiny muted">Aucun spectateur connecté pour l'instant.</div>`;
+    specList.innerHTML = specs.length ? specs.map(s=>{
+      const sid = s.id.replace(/'/g,"\\'");
+      return `<div class="row between small" style="border-bottom:1px solid var(--line); padding:5px 0; align-items:center;">
+        <div><b>${s.nom}</b> <span class="tiny muted font-mono">${s.tel}</span></div>
+        <div class="row gap-xs">
+          <button onclick="editSpectator('${sid}')" class="chip" style="cursor:pointer; background:rgba(255,255,255,0.08); border:1px solid var(--line); color:var(--ink); font-size:11px; padding:2px 7px;">✏️</button>
+          <button onclick="deleteSpectator('${sid}')" class="chip" style="cursor:pointer; background:rgba(255,45,138,0.15); border:1px solid var(--red); color:var(--red); font-size:11px; padding:2px 7px;">🗑</button>
+        </div>
+      </div>`;
+    }).join('') : `<div class="tiny muted">Aucun spectateur connecté pour l'instant.</div>`;
   }
 
   document.getElementById('playerCount').textContent = `${state.players.length} / 32`;
@@ -2395,6 +2453,15 @@ function renderAll(){
   renderProchainsMatches();
   renderClassement();
   renderMesParis();
+  // bannière paris restants : visible pour tous les connectés (joueurs et spectateurs)
+  var banner = document.getElementById('betLimitBanner');
+  var bannerTxt = document.getElementById('betLimitText');
+  if(banner && bannerTxt && spectator && !isRecognizedAdminPhone(spectator.tel)){
+    var left = myBetsLeft();
+    bannerTxt.textContent = left + ' / ' + limitFor(spectator.tel);
+    banner.style.display = '';
+    bannerTxt.style.color = left === 0 ? 'var(--red)' : 'var(--gold)';
+  } else if(banner){ banner.style.display = 'none'; }
 }
 
 // ---------- countdown + viewer counter ----------
