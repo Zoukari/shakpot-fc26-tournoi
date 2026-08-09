@@ -1610,8 +1610,70 @@ async function submitScore(matchId){
   }
   m.score1 = s1; m.score2 = s2; m.winnerId = winnerId; m.status = 'done';
   propagate();
+  const panel = document.getElementById('adminPanel');
+  const savedScroll = panel ? panel.scrollTop : 0;
   await saveBracket();
   await refreshAll();
+  if(panel) panel.scrollTop = savedScroll;
+}
+
+async function resetScore(matchId){
+  const m = findMatch(matchId);
+  if(!m) return;
+  if(!confirm('Modifier le score de ce match ? Les résultats des tours suivants seront effacés.')) return;
+  // Reset this match
+  m.score1 = null; m.score2 = null; m.winnerId = null; m.status = 'pending';
+  // Re-propagate: this will clear dependent rounds correctly
+  clearDownstreamOf(matchId);
+  propagate();
+  const panel = document.getElementById('adminPanel');
+  const savedScroll = panel ? panel.scrollTop : 0;
+  await saveBracket();
+  await refreshAll();
+  if(panel) panel.scrollTop = savedScroll;
+}
+
+function clearDownstreamOf(matchId){
+  if(!state.bracket) return;
+  const rounds = state.bracket.rounds;
+  const finaleRoundIdx = rounds.findIndex(r=>r.name==='Finale');
+  const lastKO = finaleRoundIdx >= 0 ? finaleRoundIdx : rounds.length - 2;
+  // Find which round and position contains matchId
+  let foundRound = -1, foundPos = -1;
+  for(let r=0; r<rounds.length; r++){
+    const pos = rounds[r].matches.findIndex(x=>x.id===matchId);
+    if(pos !== -1){ foundRound = r; foundPos = pos; break; }
+  }
+  if(foundRound === -1) return;
+  // Clear all matches in subsequent rounds that derive from this position
+  // Position in next round: Math.floor(pos/2), and so on
+  let positions = new Set([foundPos]);
+  for(let r = foundRound+1; r <= lastKO; r++){
+    const nextPositions = new Set();
+    positions.forEach(pos => nextPositions.add(Math.floor(pos/2)));
+    positions = nextPositions;
+    rounds[r].matches.forEach((m,i)=>{
+      if(positions.has(i)){
+        m.score1 = null; m.score2 = null; m.winnerId = null;
+        m.p1 = null; m.p2 = null;
+        m.status = 'waiting';
+      }
+    });
+  }
+  // Also clear petite finale if it exists
+  const thirdRound = rounds.find(r=>r.name==='Petite finale');
+  if(thirdRound){
+    const semiRound = rounds.find(r=>r.name==='Demi-finales');
+    if(semiRound){
+      const semiPos = semiRound.matches.findIndex(x=>x.id===matchId);
+      if(semiPos !== -1){
+        thirdRound.matches.forEach(m=>{
+          m.score1 = null; m.score2 = null; m.winnerId = null;
+          m.p1 = null; m.p2 = null; m.status = 'waiting';
+        });
+      }
+    }
+  }
 }
 
 // ---------- betting (public) ----------
@@ -2411,15 +2473,17 @@ function renderAdmin(){
           </div>`;
         if(m.status!=='done'){
           html += `<div class="row gap-sm" style="margin-bottom:8px;">
-            <input id="s1_${m.id}" type="number" placeholder="${m.p1.prenom}" class="input input-sm">
+            <input id="s1_${m.id}" type="number" placeholder="${m.p1.prenom}" class="input input-sm" onfocus="this.select()">
             <span class="muted">-</span>
-            <input id="s2_${m.id}" type="number" placeholder="${m.p2.prenom}" class="input input-sm">
+            <input id="s2_${m.id}" type="number" placeholder="${m.p2.prenom}" class="input input-sm" onfocus="this.select()">
           </div>
           <div class="row gap-md small wrap" style="margin-bottom:8px;">
             <label class="row gap-xs"><input type="radio" name="tie_${m.id}" value="${m.p1.id}"> Si égalité : ${m.p1.prenom} (t.a.b.)</label>
             <label class="row gap-xs"><input type="radio" name="tie_${m.id}" value="${m.p2.id}"> ${m.p2.prenom}</label>
           </div>
-          <button onclick="submitScore('${m.id}')" class="btn btn-primary btn-sm" style="width:100%;">Valider le résultat</button>`;
+          <button onclick="submitScore('${m.id}')" class="btn btn-primary btn-sm" style="width:100%;">✅ Valider le résultat</button>`;
+        } else {
+          html += `<button onclick="resetScore('${m.id}')" class="btn btn-sm" style="width:100%; margin-top:4px; background:rgba(255,255,255,0.06); border:1px solid var(--line); color:var(--muted); font-size:12px;">✏️ Modifier le score</button>`;
         }
         if(matchBets.length){
           html += `<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--line);">
