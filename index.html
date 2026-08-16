@@ -2703,14 +2703,10 @@ function playIntro(){
 }
 
 function initIntro(){
-  var seen = false;
-  try{ seen = localStorage.getItem(INTRO_KEY) === '1'; }catch(e){}
+  // 3e édition : on saute l'intro directement
   var intro = document.getElementById('intro');
-  if(seen){
-    intro.style.display = 'none';
-    return;
-  }
-  playIntro();
+  if(intro) intro.style.display = 'none';
+  try{ localStorage.setItem(INTRO_KEY, '1'); }catch(e){}
 }
 
 (async function init(){
