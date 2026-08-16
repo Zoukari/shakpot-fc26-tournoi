@@ -17,9 +17,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --bg:#080D0F; --panel:#0D1A15; --panel2:#102018; --line:#1C3028;
-    --red:#FF2D8A; --red2:#FF2D8A; --gold:#00E87A; --ink:#F0F4F2; --muted:#6E8A7A;
-    --green:#00E87A; --pink:#FF2D8A;
+    --bg:#05080F; --panel:#080E1C; --panel2:#0A1225; --line:#162040;
+    --red:#0084FF; --red2:#0099FF; --gold:#FFD700; --ink:#F0F5FF; --muted:#6E82A7;
+    --green:#0084FF; --pink:#0099FF;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;overflow-x:hidden;width:100%;}
@@ -237,8 +237,8 @@
     <div class="font-display" style="font-size:22px; color:var(--red2); letter-spacing:1px;">BATTLEGROUND SPACE PRÉSENTE</div>
   </div>
   <div id="introScene2" class="intro-scene">
-    <div class="font-display" style="font-size:44px; line-height:1; color:var(--green);">TOURNOI <span style="color:var(--pink);">FC26</span></div>
-    <div style="font-size:24px; margin-top:14px; letter-spacing:2px; color:var(--green); font-weight:700;">LA 2ÈME ÉDITION</div>
+    <div class="font-display" style="font-size:44px; line-height:1; color:var(--green);">3ÈME ÉD. <span style="color:var(--red);">FC26</span></div>
+    <div style="font-size:24px; margin-top:14px; letter-spacing:2px; color:var(--green); font-weight:700;">LA 3ÈME ÉDITION</div>
   </div>
   <div id="introScene3" class="intro-scene">
     <div class="chip muted" style="font-size:18px; margin-bottom:20px;">EN PARTENARIAT AVEC</div>
@@ -265,11 +265,34 @@
         <h1 class="font-display gate-title">TOURNOI<br><span class="red">FC26</span></h1>
       </div>
 
-      <div class="card" style="padding:6px 16px;">
-        <div class="info-row"><span class="info-emoji">🏆</span><span>10 000 / 6 000 / 3 000 FDJ — bons de chez Battleground Space pour le 1er, 2e et 3e</span></div>
-        <div class="info-row"><span class="info-emoji">🎟️</span><span>Inscription 1 500 FDJ — tacos et boisson inclus</span></div>
-        <div class="info-row"><span class="info-emoji">📅</span><span>Vendredi 7 août · 19h00 · chez Battleground Space</span></div>
-        <div class="info-row"><span class="info-emoji">🎲</span><span>Parie sur les scores : bon parieur = <b class="gold">-15% chez Battleground Space</b></span></div>
+      <!-- CASH PRIZES -->
+      <div style="margin-bottom:14px;">
+        <div style="text-align:center; font-size:10px; letter-spacing:2px; color:var(--muted); margin-bottom:10px; font-weight:700;">🏆 DOTATION TOTALE</div>
+        <div style="display:flex; gap:8px; justify-content:center;">
+          <div style="flex:1; background:linear-gradient(135deg,#1a1400,#2a2000); border:2px solid #FFD700; border-radius:14px; padding:10px 6px; text-align:center;">
+            <div style="font-size:22px; margin-bottom:2px;">🥇</div>
+            <div style="font-size:16px; font-weight:900; color:#FFD700; line-height:1;">10 000</div>
+            <div style="font-size:9px; color:#FFD700; opacity:.8;">FDJ</div>
+            <div style="font-size:8px; color:var(--muted); margin-top:3px; line-height:1.2;">BON SHAKPOT</div>
+          </div>
+          <div style="flex:1; background:linear-gradient(135deg,#0a1020,#0d1830); border:2px solid #0084FF; border-radius:14px; padding:10px 6px; text-align:center;">
+            <div style="font-size:22px; margin-bottom:2px;">🥈</div>
+            <div style="font-size:16px; font-weight:900; color:#0099FF; line-height:1;">6 000</div>
+            <div style="font-size:9px; color:#0099FF; opacity:.8;">FDJ</div>
+            <div style="font-size:8px; color:var(--muted); margin-top:3px; line-height:1.2;">BON VAGABOX</div>
+          </div>
+          <div style="flex:1; background:linear-gradient(135deg,#140a00,#201200); border:2px solid #CD7F32; border-radius:14px; padding:10px 6px; text-align:center;">
+            <div style="font-size:22px; margin-bottom:2px;">🥉</div>
+            <div style="font-size:16px; font-weight:900; color:#CD7F32; line-height:1;">3 000</div>
+            <div style="font-size:9px; color:#CD7F32; opacity:.8;">FDJ</div>
+            <div style="font-size:8px; color:var(--muted); margin-top:3px; line-height:1.2;">BON KLIK</div>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="padding:8px 16px;">
+        <div class="info-row"><span class="info-emoji">🎟️</span><span><b style="color:var(--gold);">1 550 FDJ</b> — tacos &amp; boisson inclus</span></div>
+        <div class="info-row"><span class="info-emoji">📅</span><span>Vendredi 21 août · 19h00 · Battleground Space</span></div>
+        <div class="info-row"><span class="info-emoji">🎲</span><span>Parie sur les scores → <b class="gold">-15% chez Battleground Space</b></span></div>
       </div>
 
       <div class="row gap-sm" style="margin-top:18px;">
@@ -343,7 +366,7 @@
       <div class="card stat-strip">
         <div class="stat">
           <div class="stat-label">Coup d'envoi</div>
-          <div class="stat-value">Ven 7 août · 19h00</div>
+          <div class="stat-value">Ven 21 août · 19h00</div>
         </div>
         <div class="stat">
           <div class="stat-label">Compte à rebours</div>
@@ -569,7 +592,7 @@
 
       <div id="playerListWrap" style="margin-top:14px;"></div>
 
-      <button onclick="cashierReport()" class="btn g1" style="margin-top:12px; width:100%; background:rgba(0,232,122,0.14); border:1px solid var(--gold); color:var(--gold); font-weight:700;">📋 Rapport caissier (partager la liste)</button>
+      <button onclick="cashierReport()" class="btn g1" style="margin-top:12px; width:100%; background:rgba(255,215,0,0.12); border:1px solid var(--gold); color:var(--gold); font-weight:700;">📋 Rapport caissier (partager la liste)</button>
 
       <div id="bracketHint" class="hidden" style="margin-top:14px; padding:10px 12px; border-radius:10px; background:rgba(242,183,5,0.12); border:1px solid var(--gold);">
         <div class="small" style="color:var(--gold);">⚠️ Le tableau n'est pas encore lancé. Clique sur « Générer le tirage » ci-dessous pour créer l'arbre avec les joueurs inscrits.</div>
@@ -577,7 +600,7 @@
 
       <div class="row gap-sm" style="margin-top:14px;">
         <button onclick="regenerateBracket()" class="btn btn-primary g1">🎯 Générer le tirage</button>
-        <button onclick="resetAll()" class="btn btn-danger g1">Réinitialiser tout</button>
+        <button onclick="resetAll()" class="btn btn-danger g1">🔄 Nouvelle édition</button>
       </div>
     </div>
 
@@ -588,6 +611,12 @@
       </div>
       <p class="small muted" style="margin-top:0;">Chaque personne qui s'est connectée via le portail d'entrée (nom + numéro).</p>
       <div id="spectatorsList" class="col gap-xs"></div>
+    </div>
+
+    <div class="card" style="padding:16px; margin-bottom:16px;">
+      <div style="font-weight:600; font-size:14px; margin-bottom:6px;">📋 Anciens joueurs — Relance 3<sup>e</sup> édition</div>
+      <p class="small muted" style="margin-top:0; margin-bottom:10px;">Joueurs de l'édition précédente. Appuie sur 📲 pour leur envoyer un message WhatsApp de relance.</p>
+      <div id="ancienJoueursList" class="col gap-xs" style="max-height:280px; overflow-y:auto;"></div>
     </div>
 
     <div class="card" style="padding:16px; margin-bottom:16px;">
@@ -679,10 +708,10 @@ var SUPABASE_URL = "https://ucuwpfufyjmkwyilvpeo.supabase.co";
 var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjdXdwZnVmeWpta3d5aWx2cGVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3Mzg3NDIsImV4cCI6MjA5ODMxNDc0Mn0.ovSUjBEoaPTcNUBq2aawOW-1qUSgb5tZj5btXeKT9sA";
 var sb = window.sb || (window.sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY));
 
-var TOURNAMENT_DATE = new Date("2026-08-07T19:00:00+03:00");
+var TOURNAMENT_DATE = new Date("2026-08-21T19:00:00+03:00");
 var ROUND_NAMES = ["Round 1","Huitièmes de finale","Quarts de finale","Demi-finales","Finale"];
 
-var state = { players: [], bracket: null, adminPhones: ["77743322"], spectators: [] };
+var state = { players: [], bracket: null, adminPhones: ["77743322"], spectators: [], ancienJoueurs: [] };
 var bets = {}; // { matchId: [{nom, tel, side, ts}] }
 var spectator = null;
 var myPlayerPaid = true; // false = joueur connecté mais non payé => tout flou + rien cliquable
@@ -720,6 +749,10 @@ async function refreshAll(){
     }
     applyPaidLock();
     state.adminPhones = (stateRows && stateRows[0] && stateRows[0].admins) || ["77743322"];
+    if(stateRows && stateRows[0] && stateRows[0].ancien_joueurs){
+      var aj = stateRows[0].ancien_joueurs;
+      state.ancienJoueurs = (typeof aj === 'string') ? (function(){ try{ return JSON.parse(aj); }catch(e){ return []; } })() : (aj || []);
+    }
     var newViewerBase = stateRows && stateRows[0] ? stateRows[0].viewer_base : null;
     if(stateRows && stateRows[0] && stateRows[0].bet_limits){
       var bl = stateRows[0].bet_limits;
@@ -1069,7 +1102,7 @@ function cashierReport(){
   const unpaid = players.filter(p=>p.paid!==true);
   let txt = `🎮 TOURNOI FC26 — LISTE CAISSIER\n${new Date().toLocaleDateString('fr-FR')} · ${players.length} joueurs\n`;
   txt += `✅ Payés : ${paid.length}   ❌ Non payés : ${unpaid.length}\n`;
-  txt += `Recette encaissée : ${paid.length*1500} FDJ\n`;
+  txt += `Recette encaissée : ${paid.length*1550} FDJ\n`;
   txt += `Paiement : SHAKPOT sur place · CAC 102417 · Waafi 7394\n`;
   txt += `\n━━━━━━━━━━━━━━━━━━━━\n`;
   if(unpaid.length){
@@ -1114,11 +1147,11 @@ function waPlayer(pid, type){
   const prenom = p.prenom || '';
   let msg = '';
   if(type==='match'){
-    msg = `Salut ${prenom} !\n\nC'est bien ce soir le TOURNOI FC26 à Battleground Space, coup d'envoi 19h00. Ne tarde pas, viens un peu en avance pour ton premier match.\n\nÀ bientôt 🎮`;
+    msg = `Salut ${prenom} !\n\nC'est bien ce soir la 3ÈME ÉDITION du TOURNOI FC26 à Battleground Space, coup d'envoi 19h00. Ne tarde pas, viens un peu en avance pour ton premier match.\n\nÀ bientôt 🎮`;
   } else if(type==='bienvenue'){
-    msg = `Bienvenue ${prenom} ! 🎉\n\nTon inscription au TOURNOI FC26 est bien réglée, ta place est validée. Tu fais officiellement partie des joueurs de Battleground Space, vendredi 7 août à 19h00.\n\nTon code PIN joueur : ${p.pin || '—'}\nConnecte-toi sur le site en mode joueur avec ce code pour suivre ton tableau, tes matchs et parier sur les autres joueurs.\n\nPrépare bien ton équipe. À bientôt !`;
+    msg = `Bienvenue ${prenom} ! 🎉\n\nTon inscription au TOURNOI FC26 est bien réglée, ta place est validée. Tu fais officiellement partie des joueurs de la 3ème édition — Battleground Space, vendredi 21 août à 19h00.\n\nTon code PIN joueur : ${p.pin || '—'}\nConnecte-toi sur le site en mode joueur avec ce code pour suivre ton tableau, tes matchs et parier sur les autres joueurs.\n\nPrépare bien ton équipe. À bientôt !`;
   } else if(type==='paiement'){
-    msg = `Salut ${prenom} !\n\nPetit rappel : ton inscription au TOURNOI FC26 n'est pas encore réglée. Pour valider ta place et pouvoir jouer, il faut régler l'inscription (1 500 FDJ, tacos + boisson inclus).\n\n${PAY_INFO}\n\nMerci 🙏`;
+    msg = `Salut ${prenom} !\n\nPetit rappel : ton inscription au TOURNOI FC26 n'est pas encore réglée. Pour valider ta place et pouvoir jouer, il faut régler l'inscription (1 550 FDJ, tacos + boisson inclus).\n\n${PAY_INFO}\n\nMerci 🙏`;
   } else if(type==='parrainage'){
     const invited = state.players.filter(x=>x.invited_by===p.id);
     const unpaid = invited.filter(x=>x.paid!==true);
@@ -1133,12 +1166,23 @@ function waPlayer(pid, type){
     }
   } else if(type==='confirmation'){
     if(p.paid===true){
-      msg = `Salut ${prenom} !\n\nC'est validé : tu es bien INSCRIT au TOURNOI FC26 à Battleground Space (vendredi 7 août, 19h00). Ta place est réservée, tu vas jouer.\n\nTon code PIN joueur : ${p.pin || '—'}\nGarde-le, c'est lui qui te connecte sur le site en mode joueur pour suivre ton tableau, tes matchs et parier sur les autres joueurs.\n\nÀ bientôt 🎮`;
+      msg = `Salut ${prenom} !\n\nC'est validé : tu es bien INSCRIT à la 3ÈME ÉDITION du TOURNOI FC26 — Battleground Space (vendredi 21 août, 19h00). Ta place est réservée, tu vas jouer.\n\nTon code PIN joueur : ${p.pin || '—'}\nGarde-le, c'est lui qui te connecte sur le site en mode joueur pour suivre ton tableau, tes matchs et parier sur les autres joueurs.\n\nÀ bientôt 🎮`;
     } else {
-      msg = `Salut ${prenom} !\n\nTu as bien accès au site du TOURNOI FC26 à Battleground Space, mais tu n'es pas encore inscrit pour jouer.\n\nIl te reste à régler ton inscription (1 500 FDJ, tacos + boisson inclus) pour valider ta place et pouvoir jouer vendredi 7 août à 19h00.\n\n${PAY_INFO}\n\nTon code PIN joueur : ${p.pin || '—'}\nGarde-le : dès que ton paiement est validé, il te connecte en mode joueur pour suivre ton tableau et parier sur les autres joueurs.\n\nPasse régler dès que possible pour ne pas perdre ta place 🙏`;
+      msg = `Salut ${prenom} !\n\nTu as bien accès au site du TOURNOI FC26 à Battleground Space, mais tu n'es pas encore inscrit pour jouer.\n\nIl te reste à régler ton inscription (1 550 FDJ, tacos + boisson inclus) pour valider ta place et pouvoir jouer vendredi 21 août à 19h00.\n\n${PAY_INFO}\n\nTon code PIN joueur : ${p.pin || '—'}\nGarde-le : dès que ton paiement est validé, il te connecte en mode joueur pour suivre ton tableau et parier sur les autres joueurs.\n\nPasse régler dès que possible pour ne pas perdre ta place 🙏`;
     }
   }
   const url = 'https://wa.me/' + waNumber(p.tel) + '?text=' + encodeURIComponent(msg);
+  window.open(url, '_blank');
+}
+
+// ---- relance 3ème édition ----
+function waRelance(pid){
+  const p = state.players.find(x=>x.id===pid);
+  if(!p || !p.tel){ alert("Ce joueur n'a pas de numéro."); return; }
+  const prenom = p.prenom || '';
+  const msg = `Salut ${prenom} ! 🎮\n\nLa 3ème édition du TOURNOI FC26 arrive !\n\n📅 Vendredi 21 août à 19h00 chez Battleground Space\n🎟️ Inscription : 1 550 FDJ (tacos & boisson inclus)\n\n🏆 Dotation :\n🥇 1er : 10 000 FDJ (bon Shakpot)\n🥈 2e  : 6 000 FDJ (bon Vagabox)\n🥉 3e  : 3 000 FDJ (bon Klik)\n\nT'es chaud pour remettre ça ? 🔥\nRéponds-moi pour confirmer ta place.`;
+  const num = '253' + p.tel.replace(/\D/g,'').replace(/^253/,'');
+  const url = 'https://wa.me/' + num + '?text=' + encodeURIComponent(msg);
   window.open(url, '_blank');
 }
 
@@ -1403,13 +1447,23 @@ async function regenerateBracket(){
   await refreshAll();
 }
 
-async function resetAll(){
-  if(!confirm('Réinitialiser TOUT (joueurs, tirage, paris) ? Action irréversible.')) return;
+async async function resetAll(){
+  if(!confirm('Réinitialiser pour la nouvelle édition ?\n\nLes joueurs actuels seront archivés comme \"anciens joueurs\" (tu pourras les relancer).\nLe tirage, les paris et les spectateurs seront effacés.')) return;
+  // Archive current players as ancienJoueurs
+  const anciens = (state.players || []).map(p=>({id:p.id, prenom:p.prenom, nom:p.nom, tel:p.tel, club:p.club}));
+  // Merge with existing anciens (deduplicate by tel)
+  const existing = state.ancienJoueurs || [];
+  const existingTels = new Set(existing.map(x=>x.tel));
+  const merged = [...existing, ...anciens.filter(p=>p.tel && !existingTels.has(p.tel))];
+  // Save ancienJoueurs + reset bracket in tournament_state
+  await sb.from('tournament_state').upsert({id:1, bracket:null, ancien_joueurs: merged, updated_at: new Date().toISOString()});
+  // Delete bets, players, spectators
   await sb.from('bets').delete().neq('match_id','');
   await sb.from('players').delete().neq('id','');
+  await sb.from('spectators').delete().neq('tel','');
   state.bracket = null;
-  await saveBracket();
   await refreshAll();
+  alert('✅ Réinitialisé ! ' + anciens.length + ' joueur(s) archivé(s) pour la relance.');
 }
 
 // ---------- seeders (données de test) ----------
@@ -2359,10 +2413,39 @@ function renderAdminBetLimits(){
   }).join('');
 }
 
+function renderAncienJoueurs(){
+  const el = document.getElementById('ancienJoueursList');
+  if(!el) return;
+  const anciens = (state.ancienJoueurs || []);
+  if(!anciens.length){
+    el.innerHTML = '<div class="tiny muted">Aucun ancien joueur enregistré. Après le tournoi, fais Réinitialiser pour archiver les joueurs ici.</div>';
+    return;
+  }
+  el.innerHTML = anciens.map(p=>{
+    const aid = (p.id||p.tel||'').replace(/'/g,"\'");
+    return `<div class="row between small" style="border-bottom:1px solid var(--line); padding:6px 0; align-items:center;">
+      <div><b>${p.prenom} ${p.nom}</b> <span class="tiny muted">${p.tel||''}</span></div>
+      <button onclick="waRelanceAncien('${aid}')" class="chip" style="cursor:pointer; background:rgba(0,132,255,0.2); border:1px solid var(--red); color:var(--red); font-size:11px; padding:3px 8px;">📲 Relance</button>
+    </div>`;
+  }).join('');
+}
+
+function waRelanceAncien(aid){
+  const anciens = state.ancienJoueurs || [];
+  const p = anciens.find(x=>(x.id===aid||x.tel===aid));
+  if(!p || !p.tel){ alert("Pas de numéro pour ce joueur."); return; }
+  const prenom = p.prenom || '';
+  const msg = `Salut ${prenom} ! 🎮\n\nLa 3ème édition du TOURNOI FC26 arrive !\n\n📅 Vendredi 21 août à 19h00 chez Battleground Space\n🎟️ Inscription : 1 550 FDJ (tacos & boisson inclus)\n\n🏆 Dotation :\n🥇 1er : 10 000 FDJ (bon Shakpot)\n🥈 2e  : 6 000 FDJ (bon Vagabox)\n🥉 3e  : 3 000 FDJ (bon Klik)\n\nT'es chaud pour remettre ça ? 🔥\nRéponds-moi pour confirmer ta place.`;
+  const num = '253' + p.tel.replace(/\D/g,'').replace(/^253/,'');
+  const url = 'https://wa.me/' + num + '?text=' + encodeURIComponent(msg);
+  window.open(url, '_blank');
+}
+
 function renderAdmin(){
   renderAllBetsAdmin();
   refreshSeedBetTargets();
   renderAdminBetLimits();
+  renderAncienJoueurs();
 
   // Liste des spectateurs connectés
   const specs = state.spectators || [];
@@ -2376,7 +2459,7 @@ function renderAdmin(){
         <div><b>${s.nom}</b> <span class="tiny muted font-mono">${s.tel}</span></div>
         <div class="row gap-xs">
           <button onclick="editSpectator('${sid}')" class="chip" style="cursor:pointer; background:rgba(255,255,255,0.08); border:1px solid var(--line); color:var(--ink); font-size:11px; padding:2px 7px;">✏️</button>
-          <button onclick="deleteSpectator('${sid}')" class="chip" style="cursor:pointer; background:rgba(255,45,138,0.15); border:1px solid var(--red); color:var(--red); font-size:11px; padding:2px 7px;">🗑</button>
+          <button onclick="deleteSpectator('${sid}')" class="chip" style="cursor:pointer; background:rgba(0,132,255,0.15); border:1px solid var(--red); color:var(--red); font-size:11px; padding:2px 7px;">🗑</button>
         </div>
       </div>`;
     }).join('') : `<div class="tiny muted">Aucun spectateur connecté pour l'instant.</div>`;
@@ -2412,7 +2495,7 @@ function renderAdmin(){
         return `<div style="border-bottom:1px solid var(--line); padding:8px 0;">
         <div class="row between" style="align-items:center;">
           <span class="small"><b>${p.prenom} ${p.nom}</b> <span class="muted tiny">· ${p.club}</span></span>
-          <button onclick="togglePaid('${pid}')" class="chip" style="cursor:pointer; border:1px solid ${paid?'var(--gold)':'var(--red)'}; background:${paid?'rgba(0,232,122,0.14)':'rgba(255,45,138,0.14)'}; color:${paid?'var(--gold)':'var(--red)'}; font-weight:700; font-size:11px; padding:3px 10px;">${paid?'✅ Payé':'❌ Non payé'}</button>
+          <button onclick="togglePaid('${pid}')" class="chip" style="cursor:pointer; border:1px solid ${paid?'var(--gold)':'var(--red)'}; background:${paid?'rgba(255,215,0,0.12)':'rgba(0,132,255,0.14)'}; color:${paid?'var(--gold)':'var(--red)'}; font-weight:700; font-size:11px; padding:3px 10px;">${paid?'✅ Payé':'❌ Non payé'}</button>
         </div>
         <div class="row between" style="align-items:center; margin-top:4px;">
           <span class="muted tiny">${p.tel||'—'} · PIN <span class="font-mono gold">${p.pin||'—'}</span></span>`
@@ -2431,11 +2514,12 @@ function renderAdmin(){
           })() + `
           <div class="row gap-xs">
             <button onclick="editPlayer('${pid}')" title="Modifier" class="chip" style="cursor:pointer; background:rgba(255,255,255,0.08); border:1px solid var(--line); color:var(--ink); font-size:11px; padding:3px 8px;">✏️</button>
-            ${paid ? `<button onclick="waPlayer('${pid}','bienvenue')" title="Message de bienvenue (payé)" class="chip" style="cursor:pointer; background:rgba(0,232,122,0.2); border:1px solid var(--gold); color:var(--gold); font-size:11px; padding:3px 8px;">🎉</button>` : ''}
+            ${paid ? `<button onclick="waPlayer('${pid}','bienvenue')" title="Message de bienvenue (payé)" class="chip" style="cursor:pointer; background:rgba(255,215,0,0.2); border:1px solid var(--gold); color:var(--gold); font-size:11px; padding:3px 8px;">🎉</button>` : ''}
             <button onclick="waPlayer('${pid}','confirmation')" title="Envoyer la confirmation (inscription + PIN)" class="chip" style="cursor:pointer; background:rgba(37,211,102,0.15); border:1px solid #25D366; color:#25D366; font-size:11px; padding:3px 8px;">📩</button>
             <button onclick="waPlayer('${pid}','match')" title="Rappel match" class="chip" style="cursor:pointer; background:rgba(37,211,102,0.15); border:1px solid #25D366; color:#25D366; font-size:11px; padding:3px 8px;">⚽</button>
-            <button onclick="waPlayer('${pid}','paiement')" title="Rappel paiement" class="chip" style="cursor:pointer; background:rgba(255,45,138,0.15); border:1px solid var(--red); color:var(--red); font-size:11px; padding:3px 8px;">💰</button>
-            <button onclick="waPlayer('${pid}','parrainage')" title="Bonus parrainage : relancer ses invités non payés" class="chip" style="cursor:pointer; background:rgba(0,232,122,0.15); border:1px solid var(--gold); color:var(--gold); font-size:11px; padding:3px 8px;">🎁</button>
+            <button onclick="waPlayer('${pid}','paiement')" title="Rappel paiement" class="chip" style="cursor:pointer; background:rgba(0,132,255,0.15); border:1px solid var(--red); color:var(--red); font-size:11px; padding:3px 8px;">💰</button>
+            <button onclick="waPlayer('${pid}','parrainage')" title="Bonus parrainage : relancer ses invités non payés" class="chip" style="cursor:pointer; background:rgba(255,215,0,0.15); border:1px solid var(--gold); color:var(--gold); font-size:11px; padding:3px 8px;">🎁</button>
+            <button onclick="waRelance('${pid}')" title="Relancer pour la 3ème édition" class="chip" style="cursor:pointer; background:rgba(0,132,255,0.2); border:1px solid var(--red); color:var(--red); font-size:11px; padding:3px 8px;">📲</button>
           </div>
         </div>
       </div>`;
