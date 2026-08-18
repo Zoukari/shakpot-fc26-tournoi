@@ -2662,9 +2662,13 @@ function initIntro(){
   initIntro();
   tickCountdown();
   tickViewers();
-  await refreshPlayers();
-  await refreshAll();
-  setupRealtime();
+  try{
+    await refreshPlayers();
+    await refreshAll();
+    setupRealtime();
+  }catch(e){
+    console.error('Init error (non-fatal):', e);
+  }
 })();
 </script>
 </body>
