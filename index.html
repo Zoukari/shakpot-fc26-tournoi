@@ -1403,7 +1403,7 @@ async function regenerateBracket(){
   await refreshAll();
 }
 
-async async function resetAll(){
+async function resetAll(){
   if(!confirm('Réinitialiser pour la nouvelle édition ?\n\nLes joueurs actuels seront archivés comme \"anciens joueurs\" (tu pourras les relancer).\nLe tirage, les paris et les spectateurs seront effacés.')) return;
   // Archive current players as ancienJoueurs
   const anciens = (state.players || []).map(p=>({id:p.id, prenom:p.prenom, nom:p.nom, tel:p.tel, club:p.club}));
