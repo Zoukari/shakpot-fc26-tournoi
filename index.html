@@ -1624,7 +1624,7 @@ async function submitScore(matchId){
   const savedScroll = panel ? panel.scrollTop : 0;
   await saveBracket();
   await refreshAll();
-  if(panel) panel.scrollTop = savedScroll;
+  requestAnimationFrame(()=>{ if(panel) panel.scrollTop = savedScroll; });
 }
 
 async function resetScore(matchId){
@@ -1640,7 +1640,7 @@ async function resetScore(matchId){
   const savedScroll = panel ? panel.scrollTop : 0;
   await saveBracket();
   await refreshAll();
-  if(panel) panel.scrollTop = savedScroll;
+  requestAnimationFrame(()=>{ if(panel) panel.scrollTop = savedScroll; });
 }
 
 function clearDownstreamOf(matchId){
@@ -2369,6 +2369,27 @@ function renderAdminBetLimits(){
   }).join('');
 }
 
+async function inscrireAncien(aid){
+  const anciens = state.ancienJoueurs || [];
+  const p = anciens.find(x=>(x.id===aid||x.tel===aid));
+  if(!p) return;
+  if(state.players.length>=32){ alert('32 joueurs déjà inscrits (maximum).'); return; }
+  if(!confirm('Réinscrire ' + p.prenom + ' ' + p.nom + ' dans la 3ème édition ?')) return;
+  const player = {
+    id: 'p_'+Date.now()+'_'+Math.floor(Math.random()*1000),
+    nom: p.nom, prenom: p.prenom, age: p.age||20, club: p.club||'',
+    tel: p.tel, pin: String(Math.floor(1000+Math.random()*9000)), paid: false, invited_by: null
+  };
+  const {error} = await sb.from('players').insert(player);
+  if(error){ alert('Erreur inscription : '+error.message); return; }
+  // Retirer des anciens
+  const newAnciens = anciens.filter(x=>(x.id!==aid&&x.tel!==aid));
+  await sb.from('tournament_state').upsert({id:1, ancien_joueurs: newAnciens, updated_at: new Date().toISOString()});
+  state.ancienJoueurs = newAnciens;
+  await refreshAll();
+  alert('✅ ' + p.prenom + ' ' + p.nom + ' réinscrit ! PIN : ' + player.pin);
+}
+
 function renderAncienJoueurs(){
   const el = document.getElementById('ancienJoueursList');
   if(!el) return;
@@ -2381,7 +2402,10 @@ function renderAncienJoueurs(){
     const aid = (p.id||p.tel||'').replace(/'/g,"\'");
     return `<div class="row between small" style="border-bottom:1px solid var(--line); padding:6px 0; align-items:center;">
       <div><b>${p.prenom} ${p.nom}</b> <span class="tiny muted">${p.tel||''}</span></div>
-      <button onclick="waRelanceAncien('${aid}')" class="chip" style="cursor:pointer; background:rgba(0,132,255,0.2); border:1px solid var(--red); color:var(--red); font-size:11px; padding:3px 8px;">📲 Relance</button>
+      <div class="row gap-xs">
+        <button onclick="waRelanceAncien('${aid}')" class="chip" style="cursor:pointer; background:rgba(0,132,255,0.2); border:1px solid var(--red); color:var(--red); font-size:11px; padding:3px 8px;">📲 Relance</button>
+        <button onclick="inscrireAncien('${aid}')" class="chip" style="cursor:pointer; background:rgba(255,215,0,0.15); border:1px solid var(--gold); color:var(--gold); font-size:11px; padding:3px 8px;">✅ Inscrire</button>
+      </div>
     </div>`;
   }).join('');
 }
