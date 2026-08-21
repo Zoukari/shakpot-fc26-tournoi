@@ -866,21 +866,41 @@ function renderIsland(){
   const isl = document.createElement('div');
   isl.className = 'b-island';
   const t = activeTab || 'bracket';
+  const tabs = [
+    {id:'bracket', label:'🏆 Tableau'},
+    {id:'prochains', label:'⚔️ Prochains'},
+    {id:'classement', label:'📊 Classement'}
+  ];
+  tabs.forEach(function(tab){
+    const btn = document.createElement('button');
+    btn.className = 'isle-btn' + (t===tab.id ? ' active' : '');
+    btn.textContent = tab.label;
+    btn.onclick = function(){ setTab(tab.id); };
+    isl.appendChild(btn);
+  });
+  const sep = document.createElement('div');
+  sep.className = 'isle-sep';
+  isl.appendChild(sep);
   if(mode==='admin'){
-    isl.innerHTML =
-      '<button class="isle-btn'+(t==='bracket'?' active':'')+'" onclick="setTab('bracket')">🏆 Tableau</button>'+
-      '<button class="isle-btn'+(t==='prochains'?' active':'')+'" onclick="setTab('prochains')">⚔️ Prochains</button>'+
-      '<button class="isle-btn'+(t==='classement'?' active':'')+'" onclick="setTab('classement')">📊 Classement</button>'+
-      '<div class="isle-sep"></div>'+
-      '<button class="isle-logout" onclick="closeAdmin()" title="Fermer">✕</button>'+
-      '<button class="isle-logout" onclick="adminLogout()" title="Déconnexion">🚪</button>';
+    const btnClose = document.createElement('button');
+    btnClose.className = 'isle-logout';
+    btnClose.title = 'Fermer';
+    btnClose.textContent = '✕';
+    btnClose.onclick = closeAdmin;
+    isl.appendChild(btnClose);
+    const btnOut = document.createElement('button');
+    btnOut.className = 'isle-logout';
+    btnOut.title = 'Déconnexion';
+    btnOut.textContent = '🚪';
+    btnOut.onclick = adminLogout;
+    isl.appendChild(btnOut);
   } else {
-    isl.innerHTML =
-      '<button class="isle-btn'+(t==='bracket'?' active':'')+'" onclick="setTab('bracket')">🏆 Tableau</button>'+
-      '<button class="isle-btn'+(t==='prochains'?' active':'')+'" onclick="setTab('prochains')">⚔️ Prochains</button>'+
-      '<button class="isle-btn'+(t==='classement'?' active':'')+'" onclick="setTab('classement')">📊 Classement</button>'+
-      '<div class="isle-sep"></div>'+
-      '<button class="isle-logout" onclick="spectatorLogout()" title="Déconnexion">🚪</button>';
+    const btnOut = document.createElement('button');
+    btnOut.className = 'isle-logout';
+    btnOut.title = 'Déconnexion';
+    btnOut.textContent = '🚪';
+    btnOut.onclick = spectatorLogout;
+    isl.appendChild(btnOut);
   }
   document.body.appendChild(isl);
 }
